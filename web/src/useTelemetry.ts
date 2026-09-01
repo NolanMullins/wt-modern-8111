@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { parseSnapshotPayload, selectNewerSnapshot } from './telemetryIngress'
 import type { Snapshot } from './types'
 
 type TransportState = 'connecting' | 'streaming' | 'reconnecting'
@@ -10,13 +11,23 @@ export function useTelemetry() {
   useEffect(() => {
     let active = true
 
+    const acceptPayload = (payload: string) => {
+      const result = parseSnapshotPayload(payload)
+      if (!result.ok) {
+        setTransport('reconnecting')
+        return false
+      }
+      setSnapshot((current) => selectNewerSnapshot(current, result.snapshot))
+      return true
+    }
+
     fetch('/api/v1/snapshot', { cache: 'no-store' })
       .then((response) => {
         if (!response.ok) throw new Error(`snapshot HTTP ${response.status}`)
-        return response.json() as Promise<Snapshot>
+        return response.text()
       })
-      .then((value) => {
-        if (active) setSnapshot(value)
+      .then((payload) => {
+        if (active) acceptPayload(payload)
       })
       .catch(() => {
         if (active) setTransport('reconnecting')
@@ -28,8 +39,7 @@ export function useTelemetry() {
     })
     events.addEventListener('snapshot', (event) => {
       if (!active || !(event instanceof MessageEvent)) return
-      setSnapshot(JSON.parse(event.data) as Snapshot)
-      setTransport('streaming')
+      if (acceptPayload(event.data)) setTransport('streaming')
     })
     events.addEventListener('error', () => {
       if (active) setTransport('reconnecting')

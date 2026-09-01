@@ -48,8 +48,36 @@ func TestHUDPrimingDiscardsHistoryThenAcceptsNewRecords(t *testing.T) {
 	}
 }
 
+func TestSingleLiveDamageRecordDoesNotConfirmIdentity(t *testing.T) {
+	requests := 0
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		requests++
+		writer.Header().Set("Content-Type", "application/json")
+		if requests == 1 {
+			_, _ = fmt.Fprint(writer, `{"events":[],"damage":[]}`)
+			return
+		}
+		_, _ = fmt.Fprint(writer, `{"events":[],"damage":[{"id":1,"msg":"=GRIND= DEERSLUG (J-7D) has crashed."}]}`)
+	}))
+	defer server.Close()
+
+	service := NewServiceWithIdentity(
+		warthunder.NewClient(server.URL, time.Second),
+		identity.NewResolver(""),
+	)
+	service.raw.Indicators = map[string]any{"type": "j_7d"}
+	service.pollHUD(context.Background())
+	service.pollHUD(context.Background())
+
+	if callsign, confirmed := service.identity.Callsign(); confirmed {
+		t.Fatalf("single damage record confirmed identity %q", callsign)
+	}
+}
+
 func TestRepeatedStateFailuresResetFeedSession(t *testing.T) {
 	service := newTestService()
+	now := time.Now()
+	service.now = func() time.Time { return now }
 	service.lastChatID = 12
 	service.lastEventID = 8
 	service.lastDamageID = 4
@@ -58,15 +86,37 @@ func TestRepeatedStateFailuresResetFeedSession(t *testing.T) {
 	service.raw.Feed = []telemetry.FeedEntry{{Key: "event:8"}}
 	service.feedKeys["event:8"] = struct{}{}
 
-	for range 3 {
-		service.recordFailure("state", context.DeadlineExceeded)
+	service.recordFailure("state", context.DeadlineExceeded)
+	now = now.Add(gameSessionFailureGrace - time.Millisecond)
+	service.recordFailure("state", context.DeadlineExceeded)
+	if service.lastChatID == 0 {
+		t.Fatal("session reset before the failure grace period elapsed")
 	}
+	now = now.Add(2 * time.Millisecond)
+	service.recordFailure("state", context.DeadlineExceeded)
 
 	if service.lastChatID != 0 || service.lastEventID != 0 || service.lastDamageID != 0 {
 		t.Fatalf("cursors were not reset: chat=%d event=%d damage=%d", service.lastChatID, service.lastEventID, service.lastDamageID)
 	}
+
 	if service.chatPrimed || service.hudPrimed || len(service.raw.Feed) != 0 {
 		t.Fatalf("feed session was not reset: chatPrimed=%v hudPrimed=%v feed=%d", service.chatPrimed, service.hudPrimed, len(service.raw.Feed))
+	}
+}
+
+func TestTransientFailureKeepsRecentSourceDataFresh(t *testing.T) {
+	service := newTestService()
+	now := time.Now()
+	service.sources["mapObjects"] = &sourceRecord{
+		lastSuccess:  now.Add(-100 * time.Millisecond),
+		lastError:    context.DeadlineExceeded,
+		firstFailure: now,
+	}
+
+	status := service.sourceStatusesLocked(now)["mapObjects"]
+
+	if status.State != "fresh" || status.Error == "" {
+		t.Fatalf("status = %+v, want fresh data with transient error detail", status)
 	}
 }
 
@@ -227,28 +277,6 @@ func TestAllyMarksExpire(t *testing.T) {
 
 	if len(service.allyMarks) != 1 || service.allyMarks[0].Key != "fresh" {
 		t.Fatalf("expired marks not pruned: %+v", service.allyMarks)
-	}
-}
-
-func TestRTBCommandVariantsAreRecognised(t *testing.T) {
-	for _, message := range []string{
-		"Heading to the base.",
-		"heading to the base",
-		"Returning to the base.",
-		"Heading to the airfield.",
-	} {
-		if !isRTBCommand(message) {
-			t.Errorf("expected %q to be an RTB command", message)
-		}
-	}
-	for _, message := range []string{
-		"Guide on me!",
-		"Attack the D point!",
-		"heading to the base of the mountain and beyond",
-	} {
-		if isRTBCommand(message) {
-			t.Errorf("did not expect %q to be an RTB command", message)
-		}
 	}
 }
 

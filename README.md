@@ -18,7 +18,7 @@ The first end-to-end application slice is implemented:
 - Click-to-select map objects, map points, and supported mission objectives
 - Bearing, range, and ETA for the selected destination
 - Radio-command RTB navigation to the nearest friendly airfield
-- Rolling bingo-fuel estimate with recovery fuel and ten-minute reserve
+- Rolling zero-reserve bingo-fuel estimate for direct airfield recovery
 - Damage-aware engine and aircraft-loss status
 - Chronological chat, HUD event, and damage feed
 - Embedded React/TypeScript briefing-columns frontend
@@ -28,6 +28,25 @@ The first end-to-end application slice is implemented:
 - [localhost:8111 API research](docs/localhost-8111-api.md)
 - [Simulator live-capture protocol](docs/sim-live-capture.md)
 - [Passive UX concepts](concepts/README.md)
+
+## Architecture
+
+The application keeps transport, domain behavior, and presentation separate:
+
+- `internal/warthunder`: bounded client and upstream endpoint types
+- `internal/polling`: polling orchestration with separate health, feed, session,
+  radio-mark, and RTB modules
+- `internal/wtradio`: reusable radio-command and grid parsing
+- `internal/telemetry`: normalized versioned snapshot model and derivation
+- `internal/server`: local JSON, SSE, map-image, and embedded-SPA delivery
+- `web/src/features`: feature-owned dashboard components and state hooks
+- `web/src/navigation`: target inference, tracking, and navigation calculation
+- `web/src/map`: coordinate geometry, hit testing, image loading, and rendering
+  layers
+- `web/src/shared`: presentation primitives and formatting
+
+`App.tsx` and `TacticalMap.tsx` are composition adapters; domain and rendering
+behavior belongs in reusable modules with focused tests.
 
 ## Development
 
@@ -40,7 +59,7 @@ Requirements:
 Install and build the embedded frontend:
 
 ```powershell
-npm --prefix .\web install
+npm --prefix .\web ci
 npm --prefix .\web run build
 ```
 
@@ -65,6 +84,7 @@ Validation:
 go test .\...
 npm --prefix .\web run typecheck
 npm --prefix .\web run lint
+npm --prefix .\web test
 npm --prefix .\web run build
 ```
 
