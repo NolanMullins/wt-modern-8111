@@ -1,0 +1,1 @@
+Run `npm run build` in web/ to generate the embedded frontend.

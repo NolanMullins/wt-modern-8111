@@ -1,0 +1,364 @@
+[
+  {
+    "type": "airfield",
+    "color": "#174DFF",
+    "color[]": [23, 77, 255],
+    "blink": 0,
+    "icon": "none",
+    "icon_bg": "none",
+    "sx": 0.359126,
+    "sy": 0.560636,
+    "ex": 0.359155,
+    "ey": 0.511808
+  },
+  {
+    "type": "aircraft",
+    "color": "#faC81E",
+    "color[]": [250, 200, 30],
+    "blink": 0,
+    "icon": "Player",
+    "icon_bg": "none",
+    "x": 0.360958,
+    "y": 0.353662,
+    "dx": -0.002011,
+    "dy": -0.999998
+  },
+  {
+    "type": "aircraft",
+    "color": "#f00C00",
+    "color[]": [240, 12, 0],
+    "blink": 2,
+    "icon": "Fighter",
+    "icon_bg": "none",
+    "x": 0.314544,
+    "y": 0.522145,
+    "dx": -0.911217,
+    "dy": -0.411928
+  },
+  {
+    "type": "aircraft",
+    "color": "#f00C00",
+    "color[]": [240, 12, 0],
+    "blink": 2,
+    "icon": "Fighter",
+    "icon_bg": "none",
+    "x": 0.435529,
+    "y": 0.498517,
+    "dx": 0.015462,
+    "dy": -0.99988
+  },
+  {
+    "type": "aircraft",
+    "color": "#f00C00",
+    "color[]": [240, 12, 0],
+    "blink": 2,
+    "icon": "Fighter",
+    "icon_bg": "none",
+    "x": 0.314258,
+    "y": 0.130046,
+    "dx": 0.19342,
+    "dy": 0.981116
+  },
+  {
+    "type": "aircraft",
+    "color": "#f00C00",
+    "color[]": [240, 12, 0],
+    "blink": 2,
+    "icon": "Fighter",
+    "icon_bg": "none",
+    "x": 0.256025,
+    "y": 0.170275,
+    "dx": -0.045846,
+    "dy": 0.998949
+  },
+  {
+    "type": "ground_model",
+    "color": "#fa0C00",
+    "color[]": [250, 12, 0],
+    "blink": 0,
+    "icon": "LightTank",
+    "icon_bg": "none",
+    "x": 0.354096,
+    "y": 0.488192
+  },
+  {
+    "type": "ground_model",
+    "color": "#fa0C00",
+    "color[]": [250, 12, 0],
+    "blink": 0,
+    "icon": "LightTank",
+    "icon_bg": "none",
+    "x": 0.354857,
+    "y": 0.488239
+  },
+  {
+    "type": "ground_model",
+    "color": "#fa0C00",
+    "color[]": [250, 12, 0],
+    "blink": 0,
+    "icon": "LightTank",
+    "icon_bg": "none",
+    "x": 0.354048,
+    "y": 0.488953
+  },
+  {
+    "type": "ground_model",
+    "color": "#fa0C00",
+    "color[]": [250, 12, 0],
+    "blink": 0,
+    "icon": "LightTank",
+    "icon_bg": "none",
+    "x": 0.354809,
+    "y": 0.489001
+  },
+  {
+    "type": "ground_model",
+    "color": "#fa0C00",
+    "color[]": [250, 12, 0],
+    "blink": 0,
+    "icon": "LightTank",
+    "icon_bg": "none",
+    "x": 0.357141,
+    "y": 0.488383
+  },
+  {
+    "type": "ground_model",
+    "color": "#fa0C00",
+    "color[]": [250, 12, 0],
+    "blink": 0,
+    "icon": "LightTank",
+    "icon_bg": "none",
+    "x": 0.357903,
+    "y": 0.48843
+  },
+  {
+    "type": "ground_model",
+    "color": "#fa0C00",
+    "color[]": [250, 12, 0],
+    "blink": 0,
+    "icon": "LightTank",
+    "icon_bg": "none",
+    "x": 0.357094,
+    "y": 0.489144
+  },
+  {
+    "type": "ground_model",
+    "color": "#fa0C00",
+    "color[]": [250, 12, 0],
+    "blink": 0,
+    "icon": "LightTank",
+    "icon_bg": "none",
+    "x": 0.357855,
+    "y": 0.489192
+  },
+  {
+    "type": "ground_model",
+    "color": "#fa0C00",
+    "color[]": [250, 12, 0],
+    "blink": 0,
+    "icon": "LightTank",
+    "icon_bg": "none",
+    "x": 0.360187,
+    "y": 0.488573
+  },
+  {
+    "type": "ground_model",
+    "color": "#fa0C00",
+    "color[]": [250, 12, 0],
+    "blink": 0,
+    "icon": "LightTank",
+    "icon_bg": "none",
+    "x": 0.360949,
+    "y": 0.488621
+  },
+  {
+    "type": "ground_model",
+    "color": "#fa0C00",
+    "color[]": [250, 12, 0],
+    "blink": 0,
+    "icon": "MediumTank",
+    "icon_bg": "none",
+    "x": 0.354317,
+    "y": 0.48466
+  },
+  {
+    "type": "ground_model",
+    "color": "#fa0C00",
+    "color[]": [250, 12, 0],
+    "blink": 0,
+    "icon": "MediumTank",
+    "icon_bg": "none",
+    "x": 0.355078,
+    "y": 0.484708
+  },
+  {
+    "type": "ground_model",
+    "color": "#fa0C00",
+    "color[]": [250, 12, 0],
+    "blink": 0,
+    "icon": "MediumTank",
+    "icon_bg": "none",
+    "x": 0.354269,
+    "y": 0.485422
+  },
+  {
+    "type": "ground_model",
+    "color": "#fa0C00",
+    "color[]": [250, 12, 0],
+    "blink": 0,
+    "icon": "MediumTank",
+    "icon_bg": "none",
+    "x": 0.355031,
+    "y": 0.485469
+  },
+  {
+    "type": "ground_model",
+    "color": "#fa0C00",
+    "color[]": [250, 12, 0],
+    "blink": 0,
+    "icon": "MediumTank",
+    "icon_bg": "none",
+    "x": 0.357363,
+    "y": 0.484851
+  },
+  {
+    "type": "ground_model",
+    "color": "#fa0C00",
+    "color[]": [250, 12, 0],
+    "blink": 0,
+    "icon": "MediumTank",
+    "icon_bg": "none",
+    "x": 0.358124,
+    "y": 0.484899
+  },
+  {
+    "type": "ground_model",
+    "color": "#fa0C00",
+    "color[]": [250, 12, 0],
+    "blink": 0,
+    "icon": "SPAA",
+    "icon_bg": "none",
+    "x": 0.327647,
+    "y": 0.445153
+  },
+  {
+    "type": "ground_model",
+    "color": "#fa0C00",
+    "color[]": [250, 12, 0],
+    "blink": 0,
+    "icon": "SAM",
+    "icon_bg": "none",
+    "x": 0.290852,
+    "y": 0.443951
+  },
+  {
+    "type": "ground_model",
+    "color": "#fa0C00",
+    "color[]": [250, 12, 0],
+    "blink": 0,
+    "icon": "SAM",
+    "icon_bg": "none",
+    "x": 0.256506,
+    "y": 0.442758
+  },
+  {
+    "type": "ground_model",
+    "color": "#fa0C00",
+    "color[]": [250, 12, 0],
+    "blink": 0,
+    "icon": "LightTank",
+    "icon_bg": "none",
+    "x": 0.295692,
+    "y": 0.475152
+  },
+  {
+    "type": "ground_model",
+    "color": "#fa0C00",
+    "color[]": [250, 12, 0],
+    "blink": 0,
+    "icon": "LightTank",
+    "icon_bg": "none",
+    "x": 0.295946,
+    "y": 0.475277
+  },
+  {
+    "type": "ground_model",
+    "color": "#fa0C00",
+    "color[]": [250, 12, 0],
+    "blink": 0,
+    "icon": "LightTank",
+    "icon_bg": "none",
+    "x": 0.333573,
+    "y": 0.59713
+  },
+  {
+    "type": "ground_model",
+    "color": "#fa0C00",
+    "color[]": [250, 12, 0],
+    "blink": 0,
+    "icon": "LightTank",
+    "icon_bg": "none",
+    "x": 0.333905,
+    "y": 0.597099
+  },
+  {
+    "type": "ground_model",
+    "color": "#fa0C00",
+    "color[]": [250, 12, 0],
+    "blink": 0,
+    "icon": "SPAA",
+    "icon_bg": "none",
+    "x": 0.737912,
+    "y": 0.513789
+  },
+  {
+    "type": "ground_model",
+    "color": "#fa0C00",
+    "color[]": [250, 12, 0],
+    "blink": 0,
+    "icon": "SAM",
+    "icon_bg": "none",
+    "x": 0.756714,
+    "y": 0.582993
+  },
+  {
+    "type": "bombing_point",
+    "color": "#fa0C00",
+    "color[]": [250, 12, 0],
+    "blink": 0,
+    "icon": "bombing_point",
+    "icon_bg": "none",
+    "x": 0.427345,
+    "y": 0.50683
+  },
+  {
+    "type": "bombing_point",
+    "color": "#fa0C00",
+    "color[]": [250, 12, 0],
+    "blink": 0,
+    "icon": "bombing_point",
+    "icon_bg": "none",
+    "x": 0.324332,
+    "y": 0.524698
+  },
+  {
+    "type": "bombing_point",
+    "color": "#fa0C00",
+    "color[]": [250, 12, 0],
+    "blink": 0,
+    "icon": "bombing_point",
+    "icon_bg": "none",
+    "x": 0.387898,
+    "y": 0.674336
+  },
+  {
+    "type": "bombing_point",
+    "color": "#fa0C00",
+    "color[]": [250, 12, 0],
+    "blink": 0,
+    "icon": "bombing_point",
+    "icon_bg": "none",
+    "x": 0.298854,
+    "y": 0.585138
+  }
+]

@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WT Modern 8111 - Split Operations</title>
+  <link rel="stylesheet" href="assets/concepts.css">
+</head>
+<body>
+  <main class="dashboard layout-split">
+    <header class="app-header">
+      <i class="brand-flag"></i>
+      <div class="brand"><strong>WT Modern 8111</strong><span>Split operations</span></div>
+      <div class="header-context"><b>JH-7</b> · Air Test · Persistent chronological feed</div>
+      <div class="connection" data-connection data-state="fixture">Prototype <span>captured map/telemetry · illustrative mission</span></div>
+    </header>
+    <section class="workspace">
+      <section class="panel map-panel">
+        <canvas data-tactical-map data-map-mode="full" aria-label="Full-mission War Thunder tactical map"></canvas>
+        <div class="map-overlay">
+          <div class="map-name"><small>Automatic tactical picture</small><strong>Test Flight</strong></div>
+          <div class="map-mode"><span data-map-source>Captured JH-7 map fixture</span><br>Grid 6.4 km · <span data-count-total>35</span> objects</div>
+        </div>
+        <div class="map-legend">
+          <span class="legend-item"><i style="background:#fff"></i>Ownship</span>
+          <span class="legend-item"><i class="air" style="background:#f00c00"></i><span data-count-air>4</span> hostile air</span>
+          <span class="legend-item"><i style="background:#fa0c00"></i><span data-count-ground>25</span> ground</span>
+          <span class="legend-item"><i class="airdef" style="background:#fa0c00"></i><span data-count-airdef>5</span> air defense</span>
+          <span class="legend-item"><i class="target" style="color:#fa0c00"></i><span data-count-target>4</span> strike points</span>
+          <span class="legend-item"><i class="airfield" style="background:#174dff"></i><span data-count-airfield>1</span> airfield</span>
+        </div>
+      </section>
+      <section class="panel flight-panel">
+        <div class="panel-head"><span>Primary flight</span><strong class="good">Valid</strong></div>
+        <div class="metric-grid">
+          <div class="metric"><small>IAS</small><strong>681 <em>km/h</em></strong></div>
+          <div class="metric"><small>TAS</small><strong>861 <em>km/h</em></strong></div>
+          <div class="metric"><small>Altitude</small><strong>5&nbsp;471 <em>m</em></strong></div>
+          <div class="metric"><small>Mach</small><strong>.78</strong></div>
+          <div class="metric"><small>Heading</small><strong>360 <em>deg</em></strong></div>
+          <div class="metric"><small>Vertical speed</small><strong>-12.9 <em>m/s</em></strong></div>
+          <div class="metric"><small>AoA</small><strong>3.1 <em>deg</em></strong></div>
+          <div class="metric"><small>Load</small><strong>1.01 <em>g</em></strong></div>
+        </div>
+      </section>
+      <section class="panel nav-panel">
+        <div class="panel-head"><span>Automatic navigation</span><strong>Map-bounds estimate</strong></div>
+        <div class="nav-body">
+          <div class="destination"><span>Active destination</span><strong>Nearest strike point</strong></div>
+          <div class="nav-stat"><small>Bearing</small><strong>157 <em>deg</em></strong></div>
+          <div class="nav-stat"><small>Range</small><strong>10.9 <em>km</em></strong></div>
+          <div class="nav-stat"><small>ETA</small><strong>00:46</strong></div>
+        </div>
+      </section>
+      <section class="panel mission-panel">
+        <div class="panel-head"><span>Active mission</span><strong>Illustrative · Running</strong></div>
+        <div class="mission-body">
+          <div class="objective"><i class="objective-tag">P</i><div><strong>Destroy the forward armor column</strong><span>Primary objective · Sector E4</span></div><div class="objective-status"><b>3 / 6</b>In progress</div></div>
+          <div class="objective secondary"><i class="objective-tag">S</i><div><strong>Return to Airfield A</strong><span>Secondary objective · Runway operational</span></div><div class="objective-status"><b>Active</b>12.0 km</div></div>
+        </div>
+      </section>
+      <section class="panel engine-panel">
+        <div class="panel-head"><span>Aircraft systems</span><strong class="good">Nominal</strong></div>
+        <div class="engine-body">
+          <div class="engine-summary"><strong>Engines 1 + 2 linked</strong><span>Throttle 100% · clean configuration</span></div>
+          <div class="systems">
+            <div class="system-stat"><small>RPM</small><strong>12&nbsp;375</strong></div>
+            <div class="system-stat"><small>Oil</small><strong>69 <em>C</em></strong></div>
+            <div class="system-stat"><small>Thrust</small><strong>2&nbsp;892 <em>kgf × 2</em></strong></div>
+            <div class="system-stat"><small>Fuel</small><strong>4&nbsp;946 <em>kg · 50%</em></strong></div>
+          </div>
+        </div>
+      </section>
+      <section class="panel feed-panel">
+        <div class="panel-head"><span>Illustrative persistent comms log</span><strong data-feed-status>5 shown · sample</strong></div>
+        <div class="feed-body">
+          <div class="feed-row"><time>12:03</time><span class="feed-type chat">Team</span><span><b>Wing 2:</b> Bandits north of target.</span></div>
+          <div class="feed-row"><time>12:02</time><span class="feed-type event">Mission</span><span>Armor column entered grid E4.</span></div>
+          <div class="feed-row"><time>12:01</time><span class="feed-type damage">Combat</span><span>Target destroyed by cannon fire.</span></div>
+          <div class="feed-row"><time>11:59</time><span class="feed-type event">System</span><span>Airfield A remains operational.</span></div>
+          <div class="feed-row"><time>11:57</time><span class="feed-type chat">Team</span><span><b>Lead:</b> Rejoin after attack.</span></div>
+        </div>
+      </section>
+    </section>
+  </main>
+  <script src="assets/concepts.js"></script>
+</body>
+</html>
