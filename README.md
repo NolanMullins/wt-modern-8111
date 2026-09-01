@@ -1,119 +1,85 @@
 # WT Modern 8111
 
-Modern, Sim-focused frontend for War Thunder's `localhost:8111` telemetry and
-tactical map interface.
+A local second-screen dashboard for War Thunder Simulator Battles.
 
-The project is intended to feel like an electronic flight bag or mission
-computer rather than a generic telemetry dashboard. The first milestone is a
-map-first, glanceable second-screen experience for Simulator Battles.
+WT Modern 8111 reads the telemetry and tactical-map data exposed at
+`localhost:8111`, then presents it in a map-first interface for a second monitor,
+laptop, or tablet. It does not modify, inject into, or read memory from the game.
 
-## Current status
+![WT Modern 8111 dashboard](docs/images/dashboard.png)
 
-The first end-to-end application slice is implemented:
+## Features
 
-- Go companion polling War Thunder's local service
-- Normalized, versioned snapshot API
-- Server-Sent Events for live browser updates
-- Generation-aware tactical-map image cache
-- Click-to-select map objects, map points, and supported mission objectives
-- Bearing, range, and ETA for the selected destination
-- Radio-command RTB navigation to the nearest friendly airfield
-- Rolling zero-reserve bingo-fuel estimate for direct airfield recovery
-- Damage-aware engine and aircraft-loss status
-- Chronological chat, HUD event, and damage feed
-- Embedded React/TypeScript briefing-columns frontend
-- Explicit fixture mode using the captured JH-7 session
+- Live tactical map with player position, aircraft, ground units, airfields,
+  objectives, and air defenses
+- Clickable map objects and arbitrary navigation points
+- Automatic detection of War Thunder map targets, including nearby-entity
+  inference and tracking for moving targets
+- Bearing, distance, and ETA to the active destination
+- IAS, TAS, Mach, altitude, heading, vertical speed, AoA, and G-load
+- Engine state, configuration, fuel quantity, and learned fuel consumption
+- Direct-return bingo fuel estimate to the nearest friendly airfield
+- Simulator radio support for `Guide on me`, `Cover me`,
+  `Attention to the map`, and return-to-base calls
+- Mission, chat, HUD-event, and damage feed
+- Offline fixture mode for development without the game running
 
-- [Project architecture and implementation plan](PLAN.md)
-- [localhost:8111 API research](docs/localhost-8111-api.md)
-- [Simulator live-capture protocol](docs/sim-live-capture.md)
-- [Passive UX concepts](concepts/README.md)
+![Tactical map and active destination](docs/images/tactical-map.png)
 
-## Architecture
-
-The application keeps transport, domain behavior, and presentation separate:
-
-- `internal/warthunder`: bounded client and upstream endpoint types
-- `internal/polling`: polling orchestration with separate health, feed, session,
-  radio-mark, and RTB modules
-- `internal/wtradio`: reusable radio-command and grid parsing
-- `internal/telemetry`: normalized versioned snapshot model and derivation
-- `internal/server`: local JSON, SSE, map-image, and embedded-SPA delivery
-- `web/src/features`: feature-owned dashboard components and state hooks
-- `web/src/navigation`: target inference, tracking, and navigation calculation
-- `web/src/map`: coordinate geometry, hit testing, image loading, and rendering
-  layers
-- `web/src/shared`: presentation primitives and formatting
-
-`App.tsx` and `TacticalMap.tsx` are composition adapters; domain and rendering
-behavior belongs in reusable modules with focused tests.
-
-## Development
+## Run from source
 
 Requirements:
 
 - Go 1.27 or later
 - Node.js 24 or later
-- War Thunder for live data, or the included fixture for offline development
 
-Install and build the embedded frontend:
+Build the embedded frontend:
 
 ```powershell
 npm --prefix .\web ci
 npm --prefix .\web run build
 ```
 
-Run against War Thunder:
+Run the companion while War Thunder is open:
 
 ```powershell
 go run .\cmd\wt-modern
 ```
 
-Run against the captured JH-7 fixture:
+The dashboard opens at `http://127.0.0.1:17711`. Use `-open=false` to suppress
+automatic browser launch.
+
+Run with the included offline fixture:
 
 ```powershell
 go run .\cmd\wt-modern -fixture .\docs\fixtures\air-test-flight-jh-7
 ```
 
-The dashboard opens at `http://127.0.0.1:17711`. Pass `-open=false` to suppress
-automatic browser launch.
-
-Validation:
+## Development
 
 ```powershell
-go test .\...
 npm --prefix .\web run typecheck
 npm --prefix .\web run lint
 npm --prefix .\web test
 npm --prefix .\web run build
+go test .\...
 ```
 
-## First milestone
+The Go companion handles polling, normalization, local identity, and SSE
+delivery. The React frontend is split into feature, navigation, map-rendering,
+and shared UI modules. CI runs frontend validation, Go vet, race-enabled tests,
+and a full companion build.
 
-1. Connect to the local War Thunder service.
-2. Display the live tactical map.
-3. Show player position and heading.
-4. Render exposed map objects and objectives.
-5. Present a compact primary flight-data strip.
-6. Automatically frame the current tactical picture.
-7. Select an exposed target, mission objective, or arbitrary map point.
-8. Calculate bearing, distance, and ETA to that destination.
-9. Work well on landscape desktop and tablet displays.
-10. Handle game-offline, hangar, loading, and partial-data states.
+## Limitations
 
-## Product principles
+- Only information deliberately exposed by War Thunder's local HTTP API is used.
+- Accurate AA range rings are not available because the API does not identify
+  the specific air-defense vehicle or weapon.
+- Simulator Battles are the current priority.
+- There is not yet a packaged release or installer.
 
-- Sim-first
-- Map-first
-- Glanceable
-- Low visual noise
-- Contextual
-- Second-screen friendly
-- Responsive
-- Modern but restrained
+## Documentation
 
-## Safety boundary
-
-WT Modern 8111 should consume only data deliberately exposed by War Thunder's
-local HTTP service. It must not read game memory, inject into the game process,
-hook rendering, or derive information from captured game frames.
+- [Architecture and implementation plan](PLAN.md)
+- [localhost:8111 API research](docs/localhost-8111-api.md)
+- [Live-capture protocol](docs/sim-live-capture.md)
