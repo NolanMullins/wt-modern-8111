@@ -1,10 +1,9 @@
 # WT Modern 8111
 
-A local second-screen dashboard for War Thunder Simulator Battles.
+A browser dashboard for War Thunder Simulator Battles.
 
-WT Modern 8111 reads the telemetry and tactical-map data exposed at
-`localhost:8111`, then presents it in a map-first interface for a second monitor,
-laptop, or tablet. It does not modify, inject into, or read memory from the game.
+WT Modern 8111 reads telemetry and tactical-map data from `localhost:8111` and
+serves a map-first interface on the same PC.
 
 ![WT Modern 8111 dashboard](docs/images/dashboard.png)
 
@@ -22,7 +21,7 @@ laptop, or tablet. It does not modify, inject into, or read memory from the game
 - Simulator radio support for `Guide on me`, `Cover me`,
   `Attention to the map`, and return-to-base calls
 - Mission, chat, HUD-event, and damage feed
-- Offline fixture mode for development without the game running
+- Captured fixture mode for offline development
 
 ![Tactical map and active destination](docs/images/tactical-map.png)
 
@@ -46,7 +45,7 @@ Run the companion while War Thunder is open:
 go run .\cmd\wt-modern
 ```
 
-The dashboard opens at `http://127.0.0.1:17711`. Use `-open=false` to suppress
+The dashboard opens at `http://127.0.0.1:17711`. The `-open=false` flag disables
 automatic browser launch.
 
 Run with the included offline fixture:
@@ -70,13 +69,13 @@ delivery. The React frontend is split into feature, navigation, map-rendering,
 and shared UI modules. CI runs frontend validation, Go vet, race-enabled tests,
 and a full companion build.
 
-## Limitations
+## Current scope
 
-- Only information deliberately exposed by War Thunder's local HTTP API is used.
-- Accurate AA range rings are not available because the API does not identify
-  the specific air-defense vehicle or weapon.
-- Simulator Battles are the current priority.
-- There is not yet a packaged release or installer.
+- Data source: War Thunder's local HTTP API
+- Air-defense identification: broad `SAM` and `AAA` classes; the API omits the
+  vehicle and weapon details required for range rings
+- Game mode priority: Simulator Battles
+- Distribution: source build
 
 ## Documentation
 
