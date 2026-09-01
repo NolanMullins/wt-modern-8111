@@ -306,12 +306,17 @@ func (s *Service) pollHUD(ctx context.Context) {
 }
 
 func (s *Service) pollMapImage(ctx context.Context, generation int) {
+	epoch := s.currentMapEpoch()
 	image, err := s.client.MapImage(ctx, generation)
 	if err != nil {
 		s.recordFailure("mapImage", err)
 		return
 	}
 	s.mu.Lock()
+	if epoch != s.mapEpoch {
+		s.mu.Unlock()
+		return
+	}
 	s.mapImage = append(s.mapImage[:0], image.Body...)
 	s.mapImageType = image.ContentType
 	s.mapGeneration = generation

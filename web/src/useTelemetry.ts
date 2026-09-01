@@ -7,6 +7,7 @@ type TransportState = 'connecting' | 'streaming' | 'reconnecting'
 export function useTelemetry() {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null)
   const [transport, setTransport] = useState<TransportState>('connecting')
+  const [error, setError] = useState<string>()
 
   useEffect(() => {
     let active = true
@@ -14,9 +15,11 @@ export function useTelemetry() {
     const acceptPayload = (payload: string) => {
       const result = parseSnapshotPayload(payload)
       if (!result.ok) {
+        setError(result.error)
         setTransport('reconnecting')
         return false
       }
+      setError(undefined)
       setSnapshot((current) => selectNewerSnapshot(current, result.snapshot))
       return true
     }
@@ -29,8 +32,11 @@ export function useTelemetry() {
       .then((payload) => {
         if (active) acceptPayload(payload)
       })
-      .catch(() => {
-        if (active) setTransport('reconnecting')
+      .catch((requestError: unknown) => {
+        if (active) {
+          setError(requestError instanceof Error ? requestError.message : 'Snapshot request failed')
+          setTransport('reconnecting')
+        }
       })
 
     const events = new EventSource('/api/v1/events')
@@ -42,7 +48,10 @@ export function useTelemetry() {
       if (acceptPayload(event.data)) setTransport('streaming')
     })
     events.addEventListener('error', () => {
-      if (active) setTransport('reconnecting')
+      if (active) {
+        setError('Telemetry stream disconnected')
+        setTransport('reconnecting')
+      }
     })
 
     return () => {
@@ -50,5 +59,5 @@ export function useTelemetry() {
       events.close()
     }
   }, [])
-  return { snapshot, transport }
+  return { snapshot, transport, error }
 }

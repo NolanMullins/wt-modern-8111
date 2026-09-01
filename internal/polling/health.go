@@ -10,6 +10,7 @@ type sourceRecord struct {
 	lastSuccess  time.Time
 	lastError    error
 	firstFailure time.Time
+	sessionReset bool
 }
 
 const gameSessionFailureGrace = 2 * time.Second
@@ -23,9 +24,11 @@ func (s *Service) recordFailure(name string, err error) {
 	if record.firstFailure.IsZero() {
 		record.firstFailure = now
 	}
-	if name == "state" && now.Sub(record.firstFailure) >= gameSessionFailureGrace {
+	if name == "state" &&
+		!record.sessionReset &&
+		now.Sub(record.firstFailure) >= gameSessionFailureGrace {
 		s.resetGameSessionLocked()
-		record.firstFailure = now
+		record.sessionReset = true
 	}
 }
 
@@ -34,6 +37,7 @@ func (s *Service) recordSuccessLocked(name string) {
 	record.lastSuccess = s.now()
 	record.lastError = nil
 	record.firstFailure = time.Time{}
+	record.sessionReset = false
 }
 
 func (s *Service) sourceLocked(name string) *sourceRecord {
@@ -61,7 +65,7 @@ func (s *Service) sourceStatusesLocked(now time.Time) map[string]telemetry.Sourc
 		}
 		if source.lastError != nil {
 			status.Error = source.lastError.Error()
-			if source.lastSuccess.IsZero() || status.State == "stale" {
+			if source.lastSuccess.IsZero() || status.State == "stale" || name == "mapImage" {
 				status.State = "error"
 			}
 		}

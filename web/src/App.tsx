@@ -10,7 +10,7 @@ import { useFuelEstimate } from './useFuelEstimate'
 import { useTelemetry } from './useTelemetry'
 
 function App() {
-  const { snapshot, transport } = useTelemetry()
+  const { snapshot, transport, error } = useTelemetry()
   const fuelEstimate = useFuelEstimate(snapshot)
   const {
     navigation,
@@ -22,7 +22,7 @@ function App() {
 
   return (
     <main className="dashboard">
-      <DashboardHeader snapshot={snapshot} transport={transport} />
+      <DashboardHeader snapshot={snapshot} transport={transport} error={error} />
       <section className="workspace">
         <FlightPanel snapshot={snapshot} />
         <NavigationPanel

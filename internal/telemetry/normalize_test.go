@@ -1,12 +1,33 @@
 package telemetry
 
 import (
+	"encoding/json"
 	"math"
 	"testing"
 	"time"
 
 	"github.com/NolanMullins/wt-modern-8111/internal/warthunder"
 )
+
+func TestSnapshotJSONMaintainsFrontendEnvelope(t *testing.T) {
+	snapshot := BuildSnapshot(1, time.Now(), "live", RawData{}, nil)
+	body, err := json.Marshal(snapshot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var envelope map[string]json.RawMessage
+	if err := json.Unmarshal(body, &envelope); err != nil {
+		t.Fatal(err)
+	}
+	if string(envelope["version"]) != "1" {
+		t.Fatalf("version = %s, want 1", envelope["version"])
+	}
+	for _, field := range []string{"feed", "allyMarks", "pilot"} {
+		if value := string(envelope[field]); value == "" || value == "null" {
+			t.Fatalf("%s must be present and non-null: %s", field, body)
+		}
+	}
+}
 
 func TestBuildSnapshotNormalizesFixtureWithoutAutomaticNavigation(t *testing.T) {
 	playerX, playerY := 0.360958, 0.353662

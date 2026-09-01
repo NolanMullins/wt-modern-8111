@@ -10,7 +10,7 @@ import type { Snapshot } from '../../types'
 export function useSelectedNavigation(snapshot: Snapshot | null) {
   const [selectedTarget, setSelectedTarget] = useState<SelectedTarget | null>(null)
   const lastGameTargetKey = useRef<string | null>(null)
-  const gameTarget = inGameTarget(snapshot)
+  const gameTarget = useMemo(() => inGameTarget(snapshot), [snapshot])
   const gameTargetKey = gameTarget?.key ?? null
 
   useEffect(() => {

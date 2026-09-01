@@ -3,11 +3,13 @@ import type { Snapshot } from '../../types'
 export function DashboardHeader({
   snapshot,
   transport,
+  error,
 }: {
   snapshot: Snapshot | null
   transport: string
+  error?: string
 }) {
-  const connection = connectionView(snapshot, transport)
+  const connection = connectionView(snapshot, transport, error)
   return (
     <header className="app-header">
       <i className="brand-flag" aria-hidden="true" />
@@ -28,17 +30,21 @@ export function DashboardHeader({
   )
 }
 
-function connectionView(snapshot: Snapshot | null, transport: string) {
+function connectionView(snapshot: Snapshot | null, transport: string, error?: string) {
   if (!snapshot) {
     return transport === 'reconnecting'
-      ? { state: 'offline', label: 'Reconnecting', detail: 'waiting for companion' }
+      ? { state: 'offline', label: 'Reconnecting', detail: error ?? 'waiting for companion' }
       : { state: 'offline', label: 'Connecting', detail: 'waiting for companion' }
   }
   if (snapshot.connection.mode === 'fixture') {
     return { state: 'fixture', label: 'Fixture', detail: 'captured session' }
   }
   if (transport !== 'streaming') {
-    return { state: 'stale', label: 'Reconnecting', detail: 'holding last good snapshot' }
+    return {
+      state: 'stale',
+      label: 'Reconnecting',
+      detail: error ?? 'holding last good snapshot',
+    }
   }
   const labels: Record<string, string> = {
     live: 'Live',

@@ -102,6 +102,12 @@ func TestRepeatedStateFailuresResetFeedSession(t *testing.T) {
 	if service.chatPrimed || service.hudPrimed || len(service.raw.Feed) != 0 {
 		t.Fatalf("feed session was not reset: chatPrimed=%v hudPrimed=%v feed=%d", service.chatPrimed, service.hudPrimed, len(service.raw.Feed))
 	}
+	service.lastChatID = 99
+	now = now.Add(gameSessionFailureGrace)
+	service.recordFailure("state", context.DeadlineExceeded)
+	if service.lastChatID != 99 {
+		t.Fatal("session reset more than once during one failure streak")
+	}
 }
 
 func TestTransientFailureKeepsRecentSourceDataFresh(t *testing.T) {
@@ -117,6 +123,21 @@ func TestTransientFailureKeepsRecentSourceDataFresh(t *testing.T) {
 
 	if status.State != "fresh" || status.Error == "" {
 		t.Fatalf("status = %+v, want fresh data with transient error detail", status)
+	}
+}
+
+func TestMapImageFailureIsReportedAfterPreviousSuccess(t *testing.T) {
+	service := newTestService()
+	now := time.Now()
+	service.sources["mapImage"] = &sourceRecord{
+		lastSuccess: now.Add(-time.Minute),
+		lastError:   context.DeadlineExceeded,
+	}
+
+	status := service.sourceStatusesLocked(now)["mapImage"]
+
+	if status.State != "error" {
+		t.Fatalf("status = %+v, want map image error", status)
 	}
 }
 
