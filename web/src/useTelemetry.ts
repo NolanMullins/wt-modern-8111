@@ -42,4 +42,3 @@ export function useTelemetry() {
   }, [])
   return { snapshot, transport }
 }
-}
