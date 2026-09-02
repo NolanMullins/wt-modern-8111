@@ -49,9 +49,9 @@ export function drawAirDefenseIcon(
 ) {
   const color = context.fillStyle
   const label = icon === 'SAM' ? 'SAM' : icon === 'SPAA' ? 'AAA' : 'AD'
-  const width = size * 3.4
-  const height = size * 1.75
-  const radius = size * 0.35
+  const width = size * 2.2
+  const height = size * 1.15
+  const radius = size * 0.25
   context.save()
   context.lineJoin = 'round'
   context.lineCap = 'round'
@@ -59,14 +59,14 @@ export function drawAirDefenseIcon(
   roundedRectPath(context, -width / 2, -height / 2, width, height, radius)
   context.fill()
   context.strokeStyle = '#07090a'
-  context.lineWidth = Math.max(3, size * 0.5)
+  context.lineWidth = Math.max(2, size * 0.35)
   context.stroke()
   context.strokeStyle = color
-  context.lineWidth = Math.max(1.5, size * 0.2)
+  context.lineWidth = Math.max(1, size * 0.15)
   context.stroke()
 
   context.fillStyle = '#fff'
-  context.font = `900 ${size * 0.9}px "Arial Narrow", Bahnschrift, sans-serif`
+  context.font = `900 ${size * 0.55}px "Arial Narrow", Bahnschrift, sans-serif`
   context.textAlign = 'center'
   context.textBaseline = 'middle'
   context.fillText(label, 0, size * 0.05)
