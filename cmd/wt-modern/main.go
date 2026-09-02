@@ -15,8 +15,10 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/NolanMullins/wt-modern-8111/internal/buildinfo"
 	"github.com/NolanMullins/wt-modern-8111/internal/polling"
 	appserver "github.com/NolanMullins/wt-modern-8111/internal/server"
+	"github.com/NolanMullins/wt-modern-8111/internal/updater"
 	"github.com/NolanMullins/wt-modern-8111/internal/warthunder"
 )
 
@@ -28,10 +30,24 @@ func main() {
 		openUI         = flag.Bool("open", runtime.GOOS != "windows", "open the dashboard at launch")
 		callsign       = flag.String("callsign", "", "set and remember the local pilot callsign")
 		forgetCallsign = flag.Bool("forget-callsign", false, "clear the remembered pilot callsign")
+		applyUpdate    = flag.String("apply-update", "", "internal: replace this installed executable")
+		waitPID        = flag.Uint("wait-pid", 0, "internal: process to wait for before updating")
+		cleanupUpdate  = flag.String("cleanup-update", "", "internal: staged update to remove")
 	)
 	flag.Parse()
 	closeLog := configureLogging()
 	defer closeLog()
+	log.Printf("starting WT Modern 8111 %s", buildinfo.Current())
+	if *applyUpdate != "" {
+		if err := updater.Apply(*applyUpdate, uint32(*waitPID)); err != nil {
+			log.Printf("apply update: %v", err)
+			if restartErr := updater.Restart(*applyUpdate); restartErr != nil {
+				log.Printf("restart previous version: %v", restartErr)
+			}
+		}
+		return
+	}
+	updater.Cleanup(*cleanupUpdate)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()

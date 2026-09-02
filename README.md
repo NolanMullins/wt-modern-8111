@@ -89,6 +89,24 @@ Build the Windows application without a console window:
 
 The executable is written to `dist\wt-modern.exe`.
 
+Build the portable executable, installer, and checksums:
+
+```powershell
+.\scripts\build-installer.ps1 -Version 1.0.0
+```
+
+## Releases and updates
+
+Version tags such as `v1.0.0` publish:
+
+- `wt-modern-setup.exe` — per-user installer
+- `wt-modern-windows-amd64.exe` — portable application
+- `checksums.txt` — SHA-256 release checksums
+
+Release builds check GitHub automatically at startup and every six hours. A
+new executable is downloaded, verified against `checksums.txt`, installed after
+the running process exits, and restarted without opening a console window.
+
 The Go companion handles polling, normalization, local identity, and SSE
 delivery. The React frontend is split into feature, navigation, map-rendering,
 and shared UI modules. CI runs frontend validation, Go vet, race-enabled tests,

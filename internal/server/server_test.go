@@ -53,6 +53,7 @@ func TestFixtureSnapshotAndFrontend(t *testing.T) {
 	if err := json.NewDecoder(snapshotResponse.Body).Decode(&snapshot); err != nil {
 		t.Fatalf("decode snapshot: %v", err)
 	}
+
 	if snapshot.Connection.Mode != "fixture" || snapshot.Vehicle.Type != "jh_7" {
 		t.Fatalf("unexpected fixture snapshot: mode=%q vehicle=%q", snapshot.Connection.Mode, snapshot.Vehicle.Type)
 	}
@@ -68,6 +69,31 @@ func TestFixtureSnapshotAndFrontend(t *testing.T) {
 	}
 	if frontendResponse.Header().Get("Content-Security-Policy") == "" {
 		t.Fatal("frontend response is missing Content-Security-Policy")
+	}
+}
+
+func TestStatusIncludesApplicationVersion(t *testing.T) {
+	handler, err := New(&fakeSource{snapshot: telemetry.Snapshot{
+		Connection: telemetry.Connection{State: "live", Mode: "live"},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/status", nil)
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	var status struct {
+		State      string `json:"state"`
+		Mode       string `json:"mode"`
+		AppVersion string `json:"appVersion"`
+	}
+	if err := json.NewDecoder(response.Body).Decode(&status); err != nil {
+		t.Fatal(err)
+	}
+	if status.State != "live" || status.Mode != "live" || status.AppVersion == "" {
+		t.Fatalf("unexpected status: %+v", status)
 	}
 }
 

@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/NolanMullins/wt-modern-8111/internal/buildinfo"
 	"github.com/NolanMullins/wt-modern-8111/internal/telemetry"
 	"github.com/NolanMullins/wt-modern-8111/internal/webui"
 )
@@ -28,7 +29,13 @@ func New(service Source) (http.Handler, error) {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/v1/status", func(writer http.ResponseWriter, request *http.Request) {
-		writeJSON(writer, service.Snapshot().Connection)
+		writeJSON(writer, struct {
+			telemetry.Connection
+			AppVersion string `json:"appVersion"`
+		}{
+			Connection: service.Snapshot().Connection,
+			AppVersion: buildinfo.Current(),
+		})
 	})
 	mux.HandleFunc("GET /api/v1/snapshot", func(writer http.ResponseWriter, request *http.Request) {
 		writeJSON(writer, service.Snapshot())
