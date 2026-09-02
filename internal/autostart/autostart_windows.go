@@ -4,7 +4,9 @@ package autostart
 
 import (
 	"errors"
+	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"golang.org/x/sys/windows/registry"
@@ -28,7 +30,7 @@ func Enabled() (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	executable, err := os.Executable()
+	executable, err := stableExecutable()
 	if err != nil {
 		return false, err
 	}
@@ -46,7 +48,7 @@ func Set(enabled bool) error {
 			return err
 		}
 		defer key.Close()
-		executable, err := os.Executable()
+		executable, err := stableExecutable()
 		if err != nil {
 			return err
 		}
@@ -70,4 +72,22 @@ func Set(enabled bool) error {
 		return nil
 	}
 	return err
+}
+
+func stableExecutable() (string, error) {
+	executable, err := os.Executable()
+	if err != nil {
+		return "", err
+	}
+	return stableExecutablePath(executable, os.TempDir())
+}
+
+func stableExecutablePath(executable, temporary string) (string, error) {
+	relative, err := filepath.Rel(temporary, executable)
+	if err == nil && relative != "." &&
+		relative != ".." &&
+		!strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("build the Windows executable before enabling automatic startup")
+	}
+	return executable, nil
 }
