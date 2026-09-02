@@ -39,3 +39,26 @@ jobs:
 
       - name: Build companion
         run: go build ./cmd/wt-modern
+
+      - name: Build Windows tray application
+        run: |
+          GOOS=windows GOARCH=amd64 go vet ./...
+          GOOS=windows GOARCH=amd64 go build -ldflags="-H windowsgui" -o wt-modern.exe ./cmd/wt-modern
+
+  windows-tray:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Vet Windows integration
+        run: go vet ./cmd/wt-modern ./internal/autostart
+
+      - name: Test Windows integration
+        run: go test ./cmd/wt-modern ./internal/autostart
+
+      - name: Build Windows tray application
+        run: go build -ldflags="-H windowsgui" -o wt-modern.exe ./cmd/wt-modern

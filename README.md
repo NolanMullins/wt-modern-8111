@@ -45,8 +45,13 @@ Run the companion while War Thunder is open:
 go run .\cmd\wt-modern
 ```
 
-The dashboard opens at `http://127.0.0.1:17711`. The `-open=false` flag disables
-automatic browser launch.
+The dashboard is available at `http://127.0.0.1:17711`. On Windows, the tray
+icon opens it; use `-open=true` to open it immediately at launch.
+
+On Windows, the companion runs from the notification area. Left-click the tray
+icon or choose **Open Dashboard**. The tray menu also provides
+**Start with Windows** and **Quit**. Build the executable before enabling
+automatic startup; `go run` uses a temporary executable that Windows removes.
 
 Set or replace the remembered pilot callsign:
 
@@ -75,6 +80,14 @@ npm --prefix .\web test
 npm --prefix .\web run build
 go test .\...
 ```
+
+Build the Windows application without a console window:
+
+```powershell
+.\scripts\build-windows.ps1
+```
+
+The executable is written to `dist\wt-modern.exe`.
 
 The Go companion handles polling, normalization, local identity, and SSE
 delivery. The React frontend is split into feature, navigation, map-rendering,
