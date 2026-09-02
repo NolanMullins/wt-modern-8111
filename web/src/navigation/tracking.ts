@@ -3,6 +3,7 @@ import type { MapObject, Snapshot } from '../types'
 import type { SelectedTarget } from './types'
 
 const targetTrackingRadius = 0.025
+const ambiguityTolerance = 0.002
 
 export function resolveTargetPosition(
   snapshot: Snapshot,
@@ -59,9 +60,13 @@ function trackedObject(snapshot: Snapshot, target: SelectedTarget) {
     .filter((entry): entry is NonNullable<typeof entry> => entry !== undefined)
     .filter((entry) => entry.distance <= targetTrackingRadius)
     .sort((left, right) => left.distance - right.distance)
-  const indexed = matches.find((entry) => entry.index === identity.index)
-  if (indexed) return indexed
-  return matches.length === 1 ? matches[0] : undefined
+  const nearest = matches[0]
+  const nextNearest = matches[1]
+  if (!nearest) return undefined
+  if (nextNearest && nextNearest.distance - nearest.distance <= ambiguityTolerance) {
+    return undefined
+  }
+  return nearest
 }
 
 function sameObjectKind(

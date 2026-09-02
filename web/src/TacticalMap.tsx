@@ -67,10 +67,20 @@ export function TacticalMap({
     const resize = new ResizeObserver(draw)
     resize.observe(canvas)
     draw()
-    const temporalOverlay = snapshot?.allyMarks.some(
-      (mark) => new Date(mark.expiresAt).getTime() > Date.now(),
+    const finalExpiry = Math.max(
+      0,
+      ...(snapshot?.allyMarks.map((mark) => new Date(mark.expiresAt).getTime()) ?? []),
     )
-    const redrawTimer = temporalOverlay ? window.setInterval(draw, 250) : undefined
+    let redrawTimer: number | undefined
+    if (finalExpiry > Date.now()) {
+      redrawTimer = window.setInterval(() => {
+        draw()
+        if (Date.now() >= finalExpiry && redrawTimer !== undefined) {
+          window.clearInterval(redrawTimer)
+          redrawTimer = undefined
+        }
+      }, 250)
+    }
     return () => {
       resize.disconnect()
       if (redrawTimer !== undefined) window.clearInterval(redrawTimer)

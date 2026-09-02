@@ -24,7 +24,9 @@ export function useSelectedNavigation(snapshot: Snapshot | null) {
     // oxlint-disable-next-line react/set-state-in-effect
     setSelectedTarget((current) => {
       if (radioRTBActivated) return null
-      if (gameTarget && gameTargetKey !== previousGameTargetKey) return gameTarget
+      if (gameTarget && !radioRTBActive && gameTargetKey !== previousGameTargetKey) {
+        return gameTarget
+      }
       if (
         !gameTarget &&
         current?.basis === 'game target' &&
