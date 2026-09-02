@@ -32,6 +32,13 @@ export function mapToCanvas(point: Point, rect: MapRect): Point {
   }
 }
 
+export function pointInRect(point: Point, rect: MapRect, margin = 0) {
+  return point.x >= rect.x - margin &&
+    point.x <= rect.x + rect.size + margin &&
+    point.y >= rect.y - margin &&
+    point.y <= rect.y + rect.size + margin
+}
+
 export function scaledDistance(
   first: Point,
   second: Point,

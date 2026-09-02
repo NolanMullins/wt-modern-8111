@@ -34,7 +34,7 @@ export function MapPanel({
         </div>
         <BingoFuelHUD estimate={fuelEstimate} />
         <div className="map-mode">
-          {snapshot?.connection.mode === 'fixture' ? 'Captured map fixture' : 'Click object or map point'}
+          {snapshot?.connection.mode === 'fixture' ? 'Captured map fixture' : 'Drag to pan · scroll to zoom'}
           <br />
           {snapshot?.map.valid ? `${counts?.total ?? 0} exposed objects` : 'Map unavailable'}
         </div>

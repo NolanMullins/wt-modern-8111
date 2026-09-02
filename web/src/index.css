@@ -451,7 +451,12 @@ body {
   inset: 0;
   width: 100%;
   height: 100%;
-  cursor: crosshair;
+  cursor: grab;
+  touch-action: none;
+}
+
+.map-panel canvas[data-dragging="true"] {
+  cursor: grabbing;
 }
 
 .map-panel canvas:focus-visible {
