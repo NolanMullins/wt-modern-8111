@@ -25,7 +25,7 @@ export function useHeatmapImage(
   useEffect(() => {
     if (!canLoad || generation === undefined) return
     let cancelled = false
-    const objectURLs: string[] = []
+    let baseImage: ImageBitmap | undefined
     const controller = new AbortController()
 
     Promise.all([
@@ -50,13 +50,18 @@ export function useHeatmapImage(
           mapResponse.blob(),
         ])
         if (cancelled) return
-        const heatImage = new Image()
-        const baseImage = new Image()
-        objectURLs.push(URL.createObjectURL(heatBlob), URL.createObjectURL(mapBlob))
-        heatImage.src = objectURLs[0]
-        baseImage.src = objectURLs[1]
-        await Promise.all([heatImage.decode(), baseImage.decode()])
+        const [heatImage, decodedBase] = await Promise.all([
+          createImageBitmap(heatBlob),
+          createImageBitmap(mapBlob),
+        ])
+        baseImage = decodedBase
+        if (cancelled) {
+          heatImage.close()
+          baseImage.close()
+          return
+        }
         const gradient = buildHeatmapGradient(heatImage)
+        heatImage.close()
         if (!cancelled) {
           setState({
             generation,
@@ -76,7 +81,7 @@ export function useHeatmapImage(
     return () => {
       cancelled = true
       controller.abort()
-      objectURLs.forEach((objectURL) => URL.revokeObjectURL(objectURL))
+      baseImage?.close()
     }
   }, [canLoad, generation])
 
@@ -86,11 +91,11 @@ export function useHeatmapImage(
   return state
 }
 
-function buildHeatmapGradient(image: HTMLImageElement): HTMLCanvasElement {
+function buildHeatmapGradient(image: ImageBitmap): HTMLCanvasElement {
   const maxSize = 1024
-  const scale = Math.min(1, maxSize / Math.max(image.naturalWidth, image.naturalHeight))
-  const width = Math.max(1, Math.round(image.naturalWidth * scale))
-  const height = Math.max(1, Math.round(image.naturalHeight * scale))
+  const scale = Math.min(1, maxSize / Math.max(image.width, image.height))
+  const width = Math.max(1, Math.round(image.width * scale))
+  const height = Math.max(1, Math.round(image.height * scale))
   const compressed = document.createElement('canvas')
   compressed.width = width
   compressed.height = height
