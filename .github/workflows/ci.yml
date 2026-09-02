@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Install frontend dependencies
+        run: npm ci --prefix web
+
+      - name: Validate frontend
+        run: |
+          npm --prefix web run typecheck
+          npm --prefix web run lint
+          npm --prefix web test
+          npm --prefix web run build
+
+      - name: Test backend
+        run: |
+          go vet ./...
+          go test -race ./...
+
+      - name: Build companion
+        run: go build ./cmd/wt-modern

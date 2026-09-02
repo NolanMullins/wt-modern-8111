@@ -1,0 +1,13 @@
+# Build output
+wt-modern.exe
+internal/webui/dist/*
+!internal/webui/dist/placeholder.txt
+
+# Frontend dependencies and output
+web/node_modules/
+web/dist/
+
+# Local runtime files
+*.log
+.DS_Store
+Thumbs.db
