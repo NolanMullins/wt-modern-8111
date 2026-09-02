@@ -27,12 +27,13 @@ func runTray(
 	serverErrors <-chan error,
 ) error {
 	tray := systray.New()
-	menu := systray.NewMenu()
-	menu.Add("Open Dashboard", func() {
+	openDashboard := func() {
 		if err := openBrowser(dashboardURL); err != nil {
 			tray.ShowNotification("WT Modern 8111", "Could not open the dashboard.")
 		}
-	})
+	}
+	menu := systray.NewMenu()
+	menu.Add("Open Dashboard", openDashboard)
 	menu.AddSeparator()
 
 	startupEnabled, startupErr := autostart.Enabled()
@@ -56,11 +57,7 @@ func runTray(
 		SetDarkModeIcon(icon).
 		SetTooltip("WT Modern 8111").
 		SetMenu(menu)
-	tray.OnDoubleClick(func() {
-		if err := openBrowser(dashboardURL); err != nil {
-			tray.ShowNotification("WT Modern 8111", "Could not open the dashboard.")
-		}
-	})
+	tray.OnClick(openDashboard)
 	if !showTrayIcon(tray, 30*time.Second) {
 		stop()
 		tray.Remove()

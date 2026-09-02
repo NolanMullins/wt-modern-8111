@@ -48,8 +48,8 @@ go run .\cmd\wt-modern
 The dashboard is available at `http://127.0.0.1:17711`. On Windows, the tray
 icon opens it; use `-open=true` to open it immediately at launch.
 
-On Windows, the companion runs from the notification area. Double-click the
-tray icon or choose **Open Dashboard**. The tray menu also provides
+On Windows, the companion runs from the notification area. Left-click the tray
+icon or choose **Open Dashboard**. The tray menu also provides
 **Start with Windows** and **Quit**.
 
 Set or replace the remembered pilot callsign:
