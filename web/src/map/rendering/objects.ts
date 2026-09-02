@@ -107,7 +107,7 @@ function drawObject(
     context.lineTo(0, size)
   } else if (isAirDefense(object)) {
     drawAirDefenseIcon(context, size, object.icon!)
-    if (hostileGround) drawHostileContactRing(context, size, object.blink)
+    if (hostileGround && object.blink) drawHostileContactRing(context, size, object.blink)
     context.restore()
     return
   } else {
@@ -116,7 +116,7 @@ function drawObject(
   }
   context.fill()
   context.stroke()
-  if (hostileGround) drawHostileContactRing(context, size, object.blink)
+  if (hostileGround && object.blink) drawHostileContactRing(context, size, object.blink)
   context.restore()
 }
 
@@ -218,7 +218,7 @@ function drawHostileContactRing(
   context.lineWidth = 2 * ratio
   context.setLineDash(blink ? [3 * ratio, 2 * ratio] : [])
   context.beginPath()
-  context.arc(0, 0, size * 1.18, 0, Math.PI * 2)
+  context.arc(0, 0, size * 1.1, 0, Math.PI * 2)
   context.stroke()
 }
 
