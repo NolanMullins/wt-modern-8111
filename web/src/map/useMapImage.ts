@@ -2,40 +2,47 @@ import { useEffect, useState } from 'react'
 import type { Snapshot } from '../types'
 
 export interface LoadedMap {
-  generation: number
+  revision: number
   image: HTMLImageElement
 }
 
-export function useMapImage(snapshot: Snapshot | null): LoadedMap | null {
+export function useMapImage(snapshot: Snapshot | null, groundMap: boolean): LoadedMap | null {
   const [mapImage, setMapImage] = useState<LoadedMap | null>(null)
 
   useEffect(() => {
     if (
       snapshot?.connection.mode !== 'live' ||
       !snapshot.map.valid ||
-      snapshot.map.generation === undefined
+      (snapshot.map.imageRevision ?? snapshot.map.generation) === undefined
     ) {
       return
     }
-    const generation = snapshot.map.generation
+    const revision = snapshot.map.imageRevision ?? snapshot.map.generation!
     let cancelled = false
     let retry: number | undefined
     const load = () => {
       const image = new Image()
       image.onload = () => {
-        if (!cancelled) setMapImage({ generation, image })
+        if (!cancelled) setMapImage({ revision, image })
       }
       image.onerror = () => {
         if (!cancelled) retry = window.setTimeout(load, 1000)
       }
-      image.src = `/api/v1/map/${generation}?attempt=${Date.now()}`
+      const endpoint = groundMap ? 'ground-map' : 'map'
+      image.src = `/api/v1/${endpoint}/${revision}?attempt=${Date.now()}`
     }
     load()
     return () => {
       cancelled = true
       if (retry !== undefined) window.clearTimeout(retry)
     }
-  }, [snapshot?.connection.mode, snapshot?.map.generation, snapshot?.map.valid])
+  }, [
+    snapshot?.connection.mode,
+    snapshot?.map.generation,
+    snapshot?.map.imageRevision,
+    snapshot?.map.valid,
+    groundMap,
+  ])
 
   return mapImage
 }

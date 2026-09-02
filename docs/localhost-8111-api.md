@@ -144,8 +144,10 @@ reported `power N, hp: 0.0` while each engine produced nonzero thrust, showing
 that a present numeric field can still be inapplicable to the current propulsion
 type.
 
-Observed ground-vehicle captures may return only `{"valid": false}`. Whether
-any ground modes produce a valid `/state` payload remains unknown.
+In a 2026-09-01 ZTZ-96A prototype ground capture, `/state` returned only
+`{"valid": false}` while `/indicators` remained valid and exposed tank-specific
+telemetry. Ground support must therefore use `/indicators` and the tactical map
+without treating an invalid `/state` response as a hangar state.
 
 ### Parsing requirements
 

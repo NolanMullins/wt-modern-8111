@@ -1,3 +1,4 @@
+import { vehicleModeForSnapshot } from '../../battleMode'
 import type { NavigationSolution } from '../../navigation'
 import type { Snapshot } from '../../types'
 import { mapRectForCamera, type MapCamera } from '../camera'
@@ -8,7 +9,8 @@ import { drawAllyMarkOverlay, drawNavigationOverlay } from './overlays'
 interface MapFrame {
   width: number
   height: number
-  image: HTMLImageElement | null
+  image: CanvasImageSource | null
+  heatmapImage?: CanvasImageSource
   snapshot: Snapshot | null
   navigation?: NavigationSolution
   camera: MapCamera
@@ -16,7 +18,7 @@ interface MapFrame {
 
 export function drawMapFrame(
   context: CanvasRenderingContext2D,
-  { width, height, image, snapshot, navigation, camera }: MapFrame,
+  { width, height, image, heatmapImage, snapshot, navigation, camera }: MapFrame,
 ) {
   const viewport = squareRect(width, height)
   const rect = mapRectForCamera(viewport, camera)
@@ -28,11 +30,30 @@ export function drawMapFrame(
   context.rect(viewport.x, viewport.y, viewport.size, viewport.size)
   context.clip()
   drawBackground(context, rect, image)
+  drawHeatmap(context, rect, heatmapImage)
   if (snapshot) {
     drawGrid(context, viewport, rect, snapshot)
-    drawObjectLayer(context, rect, viewport, snapshot.map.objects ?? [])
+    drawObjectLayer(
+      context,
+      rect,
+      viewport,
+      snapshot.map.objects ?? [],
+      vehicleModeForSnapshot(snapshot) === 'ground',
+    )
     drawNavigationOverlay(context, rect, snapshot, navigation)
     drawAllyMarkOverlay(context, rect, snapshot)
+  }
+
+  function drawHeatmap(
+    context: CanvasRenderingContext2D,
+    rect: MapRect,
+    image: CanvasImageSource | undefined,
+  ) {
+    if (!image) return
+    context.save()
+    context.globalAlpha = 0.9
+    context.drawImage(image, rect.x, rect.y, rect.size, rect.size)
+    context.restore()
   }
   context.restore()
 }
@@ -40,9 +61,9 @@ export function drawMapFrame(
 function drawBackground(
   context: CanvasRenderingContext2D,
   rect: MapRect,
-  image: HTMLImageElement | null,
+  image: CanvasImageSource | null,
 ) {
-  if (image?.complete && image.naturalWidth) {
+  if (image) {
     context.drawImage(image, rect.x, rect.y, rect.size, rect.size)
     return
   }

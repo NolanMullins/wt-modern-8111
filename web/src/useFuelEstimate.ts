@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { vehicleModeForSnapshot } from './battleMode'
 import { navigationToTarget, nearestFriendlyAirfield } from './navigation'
 import type { Snapshot } from './types'
 
@@ -31,6 +32,13 @@ export function useFuelEstimate(snapshot: Snapshot | null): FuelEstimate {
   })
 
   useEffect(() => {
+    if (vehicleModeForSnapshot(snapshot) === 'ground') {
+      samples.current = []
+      calibration.current = {}
+      // oxlint-disable-next-line react/set-state-in-effect
+      setEstimate({ state: 'unavailable', label: 'Air recovery fuel disabled in ground mode' })
+      return
+    }
     const fuelKg = snapshot?.systems.fuelKg
     if (!snapshot || fuelKg === undefined || !Number.isFinite(fuelKg)) {
       samples.current = []
@@ -106,6 +114,9 @@ export function estimateCalibratedFuel(
   snapshot: Snapshot,
   burnKgPerSecond: number,
 ): FuelEstimate {
+  if (vehicleModeForSnapshot(snapshot) === 'ground') {
+    return { state: 'unavailable', label: 'Air recovery fuel disabled in ground mode' }
+  }
   if (calibrationThrottleState(snapshot) === 'afterburner') {
     return {
       state: 'unavailable',

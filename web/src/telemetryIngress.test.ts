@@ -12,6 +12,18 @@ describe('parseSnapshotPayload', () => {
     })
   })
 
+  it('accepts a v1 snapshot from before ground fields were added', () => {
+    const snapshot = makeSnapshot(4, '2026-09-01T22:00:04Z')
+    delete snapshot.ground
+    delete snapshot.map.counts.friendlyGround
+    delete snapshot.map.counts.hostileGround
+    delete snapshot.map.counts.captureZone
+    delete snapshot.map.counts.groundSpawn
+    delete snapshot.map.imageRevision
+
+    expect(parseSnapshotPayload(JSON.stringify(snapshot))).toMatchObject({ ok: true })
+  })
+
   it('rejects malformed and unsupported snapshots', () => {
     expect(parseSnapshotPayload('{')).toMatchObject({ ok: false })
     expect(parseSnapshotPayload(JSON.stringify({
@@ -59,6 +71,7 @@ function makeSnapshot(sequence: number, capturedAt: string): Snapshot {
     connection: { state: 'live', mode: 'live', sources: {} },
     vehicle: {},
     flight: {},
+    ground: {},
     systems: {
       status: 'Nominal',
       severity: 'good',
@@ -73,7 +86,11 @@ function makeSnapshot(sequence: number, capturedAt: string): Snapshot {
         total: 0,
         hostileAir: 0,
         ground: 0,
+        friendlyGround: 0,
+        hostileGround: 0,
         airDefense: 0,
+        captureZone: 0,
+        groundSpawn: 0,
         strikePoint: 0,
         airfield: 0,
       },

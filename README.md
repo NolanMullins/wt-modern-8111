@@ -1,6 +1,6 @@
 # WT Modern 8111
 
-A browser dashboard for War Thunder Simulator Battles.
+A browser dashboard for War Thunder Simulator and Ground Realistic Battles.
 
 WT Modern 8111 reads telemetry and tactical-map data from `localhost:8111` and
 serves a map-first interface on the same PC.
@@ -21,6 +21,11 @@ serves a map-first interface on the same PC.
 - Simulator radio support for `Guide on me`, `Cover me`,
   `Attention to the map`, and return-to-base calls
 - Mission, chat, HUD-event, and damage feed
+- Automatic Ground Realistic context with tank telemetry, CAS-aware flight
+  instrumentation, capture-zone navigation, and ground symbology
+- Opt-in historical Ground Realistic heatmap overlay, automatically matched to
+  the current map and rendered from community data at
+  [War Thunder Heatmaps](https://thunder.nanachi.party/about)
 - Captured fixture mode for offline development
 
 ![Tactical map and active destination](docs/images/tactical-map.png)
@@ -71,6 +76,12 @@ Run with the included offline fixture:
 go run .\cmd\wt-modern -fixture .\docs\fixtures\air-test-flight-jh-7
 ```
 
+Run the synthetic Ground Realistic fixture:
+
+```powershell
+go run .\cmd\wt-modern -fixture .\docs\fixtures\ground-realistic-t-80u
+```
+
 ## Development
 
 ```powershell
@@ -117,7 +128,18 @@ and a full companion build.
 - Data source: War Thunder's local HTTP API
 - Air-defense identification: broad `SAM` and `AAA` classes; the API omits the
   vehicle and weapon details required for range rings
-- Game mode priority: Simulator Battles
+- Game mode priority: Simulator and Ground Realistic Battles
+- Ground battle context is inferred from the map HUD type and ground-spawn
+  objects, then retained while an aircraft is active for CAS. The local API does
+  not expose a reliable Arcade/Realistic/Simulator difficulty field.
+- Historical heatmaps make one identified, server-side request when enabled and
+  cache the result for six hours. Red indicates kill-heavy firing positions;
+  blue indicates death-heavy positions. Sparse one-meter samples are converted
+  to localized gradients at display time. Ground battles retain the tank-map
+  raster during CAS. When the historical overlay is active, its matching 2048px
+  community minimap is used as the base so both layers share the exact crop and
+  coordinate frame. Unknown maps and fixtures remain available without the
+  historical overlay.
 - Distribution: source build
 
 ## Documentation

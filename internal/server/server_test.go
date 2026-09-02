@@ -12,6 +12,7 @@ import (
 	"testing/fstest"
 	"time"
 
+	"github.com/NolanMullins/wt-modern-8111/internal/heatmap"
 	"github.com/NolanMullins/wt-modern-8111/internal/polling"
 	"github.com/NolanMullins/wt-modern-8111/internal/telemetry"
 )
@@ -23,6 +24,23 @@ type fakeSource struct {
 	gen      int
 }
 
+type fakeHeatmapSource struct {
+	result heatmap.Result
+	err    error
+}
+
+type noGroundSource struct {
+	*fakeSource
+}
+
+func (source noGroundSource) GroundMapImage() ([]byte, string, int, bool) {
+	return nil, "", 0, false
+}
+
+func (source fakeHeatmapSource) Fetch(context.Context, []byte) (heatmap.Result, error) {
+	return source.result, source.err
+}
+
 func (source *fakeSource) Snapshot() telemetry.Snapshot {
 	return source.snapshot
 }
@@ -31,6 +49,9 @@ func (source *fakeSource) MapImage() ([]byte, string, int, bool) {
 	return source.image, source.mime, source.gen, len(source.image) > 0
 }
 
+func (source *fakeSource) GroundMapImage() ([]byte, string, int, bool) {
+	return source.image, source.mime, source.gen, len(source.image) > 0
+}
 func TestFixtureSnapshotAndFrontend(t *testing.T) {
 	fixtures := filepath.Join("..", "..", "docs", "fixtures", "air-test-flight-jh-7")
 	service, err := polling.NewFixtureService(fixtures)
@@ -149,6 +170,93 @@ func TestMapEndpointContract(t *testing.T) {
 		if want == http.StatusOK && response.Header().Get("Content-Type") != "image/jpeg" {
 			t.Errorf("map content type = %q", response.Header().Get("Content-Type"))
 		}
+	}
+}
+
+func TestHeatmapEndpointContract(t *testing.T) {
+	source := &fakeSource{image: []byte("map"), mime: "image/jpeg", gen: 2}
+	provider := fakeHeatmapSource{result: heatmap.Result{
+		Map:     heatmap.Map{Level: "levels/avg_abandoned_town.bin", Name: "Abandoned Town"},
+		PNG:     []byte("\x89PNG\r\n\x1a\nheat"),
+		BasePNG: []byte("\x89PNG\r\n\x1a\nbase"),
+	}}
+	handler, err := newWithHeatmaps(source, provider)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/heatmap/2", nil)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", response.Code)
+	}
+	if response.Header().Get("Content-Type") != "image/png" {
+		t.Fatalf("content type = %q", response.Header().Get("Content-Type"))
+	}
+	if response.Header().Get("X-WT-Heatmap-Map") != "Abandoned Town" {
+		t.Fatalf("map name = %q", response.Header().Get("X-WT-Heatmap-Map"))
+	}
+}
+
+func TestGroundMapFallsBackToCurrentView(t *testing.T) {
+	source := noGroundSource{&fakeSource{image: []byte("cas"), mime: "image/jpeg", gen: 3}}
+	handler, err := New(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/ground-map/3", nil)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK ||
+		response.Header().Get("X-WT-Map-Fallback") != "current-view" ||
+		response.Body.String() != "cas" {
+		t.Fatalf("ground map fallback = %d, headers=%v", response.Code, response.Header())
+	}
+}
+
+func TestHeatmapRequiresGroundReference(t *testing.T) {
+	source := noGroundSource{&fakeSource{image: []byte("cas"), mime: "image/jpeg", gen: 3}}
+	handler, err := newWithHeatmaps(source, fakeHeatmapSource{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/heatmap/3", nil)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("heatmap status = %d, want 404", response.Code)
+	}
+}
+
+func TestGroundMapEndpointContract(t *testing.T) {
+	source := &fakeSource{image: []byte("ground"), mime: "image/png", gen: 3}
+	handler, err := New(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/ground-map/3", nil)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK || response.Body.String() != "ground" {
+		t.Fatalf("ground map response = %d %q", response.Code, response.Body.String())
+	}
+}
+
+func TestHeatmapEndpointReportsUnavailableData(t *testing.T) {
+	source := &fakeSource{image: []byte("map"), mime: "image/jpeg", gen: 2}
+	handler, err := newWithHeatmaps(
+		source,
+		fakeHeatmapSource{err: heatmap.ErrNoData},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/heatmap/2", nil)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404", response.Code)
 	}
 }
 

@@ -1,0 +1,74 @@
+[
+  {
+    "type": "ground_model",
+    "icon": "Player",
+    "color": "#ffffff",
+    "x": 0.31,
+    "y": 0.72,
+    "dx": 0.98,
+    "dy": -0.18
+  },
+  {
+    "type": "ground_model",
+    "icon": "MediumTank",
+    "color": "#174DFF",
+    "x": 0.27,
+    "y": 0.67
+  },
+  {
+    "type": "ground_model",
+    "icon": "SPAA",
+    "color": "#174DFF",
+    "x": 0.22,
+    "y": 0.76
+  },
+  {
+    "type": "ground_model",
+    "icon": "HeavyTank",
+    "color": "#fa0C00",
+    "x": 0.68,
+    "y": 0.31
+  },
+  {
+    "type": "ground_model",
+    "icon": "LightTank",
+    "color": "#fa0C00",
+    "x": 0.63,
+    "y": 0.4
+  },
+  {
+    "type": "capture_zone",
+    "icon": "A",
+    "color": "#f4b13d",
+    "x": 0.48,
+    "y": 0.48
+  },
+  {
+    "type": "capture_zone",
+    "icon": "B",
+    "color": "#f4b13d",
+    "x": 0.72,
+    "y": 0.54
+  },
+  {
+    "type": "respawn_base_tank",
+    "color": "#174DFF",
+    "x": 0.14,
+    "y": 0.86
+  },
+  {
+    "type": "respawn_base_tank",
+    "color": "#fa0C00",
+    "x": 0.86,
+    "y": 0.14
+  },
+  {
+    "type": "aircraft",
+    "icon": "Fighter",
+    "color": "#fa0C00",
+    "x": 0.58,
+    "y": 0.22,
+    "dx": -0.4,
+    "dy": 0.91
+  }
+]
