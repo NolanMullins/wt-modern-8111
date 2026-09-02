@@ -1,23 +1,30 @@
 import type { MapObject } from '../../types'
-import { mapToCanvas, type MapRect } from '../geometry'
+import { mapToCanvas, pointInRect, type MapRect } from '../geometry'
 import { drawAirDefenseIcon, drawPlayer, drawTargetPoint } from './glyphs'
 
 export function drawObjectLayer(
   context: CanvasRenderingContext2D,
   rect: MapRect,
+  viewport: MapRect,
   objects: MapObject[],
 ) {
+  const symbolMapSize = viewport.size
   const ground = objects.filter((object) => object.type === 'ground_model')
   objects
     .filter((object) => object.type !== 'ground_model' && object.type !== 'aircraft')
-    .forEach((object) => drawObject(context, rect, object))
-  drawGroundClusters(context, rect, ground)
+    .forEach((object) => drawObject(context, rect, symbolMapSize, object))
+  drawGroundClusters(context, rect, viewport, symbolMapSize, ground)
   objects
     .filter((object) => object.type === 'aircraft')
-    .forEach((object) => drawObject(context, rect, object))
+    .forEach((object) => drawObject(context, rect, symbolMapSize, object))
 }
 
-function drawObject(context: CanvasRenderingContext2D, rect: MapRect, object: MapObject) {
+function drawObject(
+  context: CanvasRenderingContext2D,
+  rect: MapRect,
+  symbolMapSize: number,
+  object: MapObject,
+) {
   const ratio = pixelRatio()
   if (object.type === 'airfield') {
     const { sx, sy, ex, ey } = object
@@ -48,11 +55,11 @@ function drawObject(context: CanvasRenderingContext2D, rect: MapRect, object: Ma
   if (typeof x !== 'number' || typeof y !== 'number' || !Number.isFinite(x) || !Number.isFinite(y)) return
   const screen = mapToCanvas({ x, y }, rect)
   if (object.icon === 'Player') {
-    drawPlayer(context, screen.x, screen.y, object, rect.size)
+    drawPlayer(context, screen.x, screen.y, object, symbolMapSize)
     return
   }
   if (object.type === 'point_of_interest') {
-    drawTargetPoint(context, screen.x, screen.y, rect.size)
+    drawTargetPoint(context, screen.x, screen.y, symbolMapSize)
     return
   }
   context.save()
@@ -60,7 +67,7 @@ function drawObject(context: CanvasRenderingContext2D, rect: MapRect, object: Ma
   context.fillStyle = object.color ?? '#f00c00'
   context.strokeStyle = '#080808'
   context.lineWidth = ratio
-  const size = Math.max(8 * ratio, rect.size * 0.014)
+  const size = Math.max(8 * ratio, symbolMapSize * 0.014)
   if (object.type === 'aircraft') {
     context.rotate(Math.atan2(object.dx ?? 0, -(object.dy ?? -1)))
     context.beginPath()
@@ -92,9 +99,12 @@ function drawObject(context: CanvasRenderingContext2D, rect: MapRect, object: Ma
 function drawGroundClusters(
   context: CanvasRenderingContext2D,
   rect: MapRect,
+  viewport: MapRect,
+  symbolMapSize: number,
   objects: MapObject[],
 ) {
   const ratio = pixelRatio()
+  const glyphExtent = Math.max(10 * ratio, symbolMapSize * 0.014)
   const clusters: Array<{ x: number; y: number; objects: MapObject[] }> = []
   const airDefense = objects.filter(isAirDefense)
   const otherGround = objects.filter((object) => !airDefense.includes(object))
@@ -102,19 +112,27 @@ function drawGroundClusters(
     const { x, y } = object
     if (typeof x !== 'number' || typeof y !== 'number' || !Number.isFinite(x) || !Number.isFinite(y)) continue
     const screen = mapToCanvas({ x, y }, rect)
+    if (!pointInRect(screen, viewport, glyphExtent)) continue
     const cluster = clusters.find(
       (item) => Math.hypot(item.x - screen.x, item.y - screen.y) < 14 * ratio,
     )
     if (cluster) {
       cluster.objects.push(object)
+      if (
+        pointInRect(screen, viewport) &&
+        !pointInRect({ x: cluster.x, y: cluster.y }, viewport)
+      ) {
+        cluster.x = screen.x
+        cluster.y = screen.y
+      }
     } else {
       clusters.push({ x: screen.x, y: screen.y, objects: [object] })
     }
   }
-  airDefense.forEach((object) => drawObject(context, rect, object))
+  airDefense.forEach((object) => drawObject(context, rect, symbolMapSize, object))
   for (const cluster of clusters) {
     if (cluster.objects.length === 1) {
-      drawObject(context, rect, cluster.objects[0])
+      drawObject(context, rect, symbolMapSize, cluster.objects[0])
       continue
     }
     context.save()

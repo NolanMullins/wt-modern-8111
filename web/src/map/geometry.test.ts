@@ -3,6 +3,7 @@ import {
   clientToMapPoint,
   mapToCanvas,
   objectPosition,
+  pointInRect,
   scaledDistance,
   squareRect,
 } from './geometry'
@@ -33,6 +34,14 @@ describe('map coordinate transforms', () => {
   it('maps normalized positions into canvas coordinates', () => {
     expect(mapToCanvas({ x: 0.25, y: 0.75 }, { x: 50, y: 0, size: 100 }))
       .toEqual({ x: 75, y: 75 })
+  })
+
+  it('classifies points against a square viewport', () => {
+    const rect = { x: 50, y: 20, size: 100 }
+
+    expect(pointInRect({ x: 50, y: 120 }, rect)).toBe(true)
+    expect(pointInRect({ x: 49.9, y: 120 }, rect)).toBe(false)
+    expect(pointInRect({ x: 49, y: 120 }, rect, 2)).toBe(true)
   })
 
   it('scales distance by rectangular world dimensions', () => {

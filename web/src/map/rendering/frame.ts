@@ -1,5 +1,6 @@
 import type { NavigationSolution } from '../../navigation'
 import type { Snapshot } from '../../types'
+import { mapRectForCamera, type MapCamera } from '../camera'
 import { squareRect, type MapRect } from '../geometry'
 import { drawObjectLayer } from './objects'
 import { drawAllyMarkOverlay, drawNavigationOverlay } from './overlays'
@@ -10,24 +11,26 @@ interface MapFrame {
   image: HTMLImageElement | null
   snapshot: Snapshot | null
   navigation?: NavigationSolution
+  camera: MapCamera
 }
 
 export function drawMapFrame(
   context: CanvasRenderingContext2D,
-  { width, height, image, snapshot, navigation }: MapFrame,
+  { width, height, image, snapshot, navigation, camera }: MapFrame,
 ) {
-  const rect = squareRect(width, height)
+  const viewport = squareRect(width, height)
+  const rect = mapRectForCamera(viewport, camera)
   context.clearRect(0, 0, width, height)
   context.fillStyle = '#111519'
   context.fillRect(0, 0, width, height)
   context.save()
   context.beginPath()
-  context.rect(rect.x, rect.y, rect.size, rect.size)
+  context.rect(viewport.x, viewport.y, viewport.size, viewport.size)
   context.clip()
   drawBackground(context, rect, image)
   if (snapshot) {
-    drawGrid(context, rect, snapshot)
-    drawObjectLayer(context, rect, snapshot.map.objects ?? [])
+    drawGrid(context, viewport, rect, snapshot)
+    drawObjectLayer(context, rect, viewport, snapshot.map.objects ?? [])
     drawNavigationOverlay(context, rect, snapshot, navigation)
     drawAllyMarkOverlay(context, rect, snapshot)
   }
@@ -57,6 +60,7 @@ function drawBackground(
 
 function drawGrid(
   context: CanvasRenderingContext2D,
+  viewport: MapRect,
   rect: MapRect,
   snapshot: Snapshot,
 ) {
@@ -76,7 +80,7 @@ function drawGrid(
   context.shadowColor = 'rgba(0,0,0,.95)'
   context.shadowBlur = 3 * ratio
   context.lineWidth = ratio
-  context.font = `700 ${Math.max(11 * ratio, rect.size * 0.018)}px Arial`
+  context.font = `700 ${Math.max(11 * ratio, viewport.size * 0.018)}px Arial`
   for (let row = 0; row <= rows; row += 1) {
     const y = rect.y + (row / rows) * rect.size
     context.beginPath()
@@ -86,7 +90,10 @@ function drawGrid(
     if (row < rows) {
       context.textAlign = 'left'
       context.textBaseline = 'middle'
-      context.fillText(rowLabel(row), rect.x + 5 * ratio, y + rect.size / rows / 2)
+      const centerY = y + rect.size / rows / 2
+      if (centerY >= viewport.y && centerY <= viewport.y + viewport.size) {
+        context.fillText(rowLabel(row), viewport.x + 5 * ratio, centerY)
+      }
     }
   }
   for (let column = 0; column <= columns; column += 1) {
@@ -98,7 +105,10 @@ function drawGrid(
     if (column < columns) {
       context.textAlign = 'center'
       context.textBaseline = 'top'
-      context.fillText(String(column + 1), x + rect.size / columns / 2, rect.y + 5 * ratio)
+      const centerX = x + rect.size / columns / 2
+      if (centerX >= viewport.x && centerX <= viewport.x + viewport.size) {
+        context.fillText(String(column + 1), centerX, viewport.y + 5 * ratio)
+      }
     }
   }
   context.restore()
