@@ -8,6 +8,7 @@ export function useTelemetry() {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null)
   const [transport, setTransport] = useState<TransportState>('connecting')
   const [error, setError] = useState<string>()
+  const [appVersion, setAppVersion] = useState('unknown')
 
   useEffect(() => {
     let active = true
@@ -28,10 +29,16 @@ export function useTelemetry() {
     fetch('/api/v1/snapshot', { cache: 'no-store' })
       .then((response) => {
         if (!response.ok) throw new Error(`snapshot HTTP ${response.status}`)
-        return response.text()
+        return response.text().then((payload) => ({
+          payload,
+          version: response.headers.get('X-WT-Modern-Version') ?? 'unknown',
+        }))
       })
-      .then((payload) => {
-        if (active) acceptPayload(payload, 'bootstrap')
+      .then(({ payload, version }) => {
+        if (active) {
+          setAppVersion(version)
+          acceptPayload(payload, 'bootstrap')
+        }
       })
       .catch((requestError: unknown) => {
         if (active) {
@@ -62,5 +69,5 @@ export function useTelemetry() {
       events.close()
     }
   }, [])
-  return { snapshot, transport, error }
+  return { snapshot, transport, error, appVersion }
 }

@@ -27,3 +27,13 @@ func TestDevelopmentVersionIsNotRelease(t *testing.T) {
 		}
 	}
 }
+
+func TestShortRevision(t *testing.T) {
+	previous := Revision
+	t.Cleanup(func() { Revision = previous })
+
+	Revision = "0123456789abcdef"
+	if got := ShortRevision(); got != "0123456789ab" {
+		t.Fatalf("ShortRevision() = %q", got)
+	}
+}

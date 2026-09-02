@@ -107,6 +107,11 @@ Release builds check GitHub automatically at startup and every six hours. A
 new executable is downloaded, verified against `checksums.txt`, installed after
 the running process exits, and restarted without opening a console window.
 
+Publish a release from **Actions → Release → Run workflow** by entering a
+semantic version such as `1.0.0`. The workflow creates the matching `v1.0.0`
+release at the selected commit. Pushing an existing semantic version tag runs
+the same build.
+
 The Go companion handles polling, normalization, local identity, and SSE
 delivery. The React frontend is split into feature, navigation, map-rendering,
 and shared UI modules. CI runs frontend validation, Go vet, race-enabled tests,
