@@ -16,6 +16,7 @@ func (s *Service) currentMapEpoch() uint64 {
 
 func (s *Service) resetMapSessionLocked() {
 	s.mapEpoch++
+	s.invalidateMapImageLocked()
 	s.raw.MapObjects = make([]warthunder.MapObject, 0)
 	s.sources["mapObjects"] = &sourceRecord{}
 	s.resetFeedSessionLocked()
@@ -27,9 +28,17 @@ func (s *Service) resetMapSessionLocked() {
 	}
 }
 
-func (s *Service) resetGameSessionLocked() {
-	s.resetMapSessionLocked()
+func (s *Service) invalidateMapImageLocked() {
 	s.mapImage = nil
 	s.mapImageType = ""
 	s.mapGeneration = 0
+	s.mapRevision++
+}
+
+func (s *Service) resetGameSessionLocked() {
+	s.resetMapSessionLocked()
+	s.mapRevision = 0
+	s.heatmapImage = nil
+	s.heatmapImageType = ""
+	s.groundMapInfo = warthunder.MapInfo{}
 }

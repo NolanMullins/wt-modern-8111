@@ -63,6 +63,14 @@ body {
   clip-path: polygon(0 0, 100% 0, 55% 100%, 0 100%);
 }
 
+.dashboard[data-battle-mode="ground"] .brand-flag {
+  background: var(--amber);
+}
+
+.dashboard[data-battle-mode="ground"] .map-name {
+  border-left-color: var(--amber);
+}
+
 .brand {
   min-width: 210px;
 }
@@ -418,6 +426,10 @@ body {
   font-weight: 850;
 }
 
+.ground-summary span:last-child {
+  color: var(--muted);
+}
+
 .system-stats {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -639,6 +651,12 @@ body {
   transform: none;
 }
 
+.legend-item i.heat {
+  border-radius: 50%;
+  box-shadow: 0 0 7px currentColor;
+  transform: none;
+}
+
 .legend-item i.airfield {
   width: 2px;
   height: 10px;
@@ -663,6 +681,81 @@ body {
 
 .mission-panel {
   grid-area: mission;
+}
+
+.heatmap-panel-body {
+  height: calc(100% - 35px);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+}
+
+.heatmap-panel-copy small {
+  color: var(--amber);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.heatmap-panel-copy strong {
+  display: block;
+  margin-top: 6px;
+  font: 900 clamp(19px, 1.7vw, 28px)/1 "Arial Narrow", Bahnschrift, sans-serif;
+  text-transform: uppercase;
+}
+
+.heatmap-panel-copy p {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.heatmap-scale {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border: 1px solid var(--line);
+  background: linear-gradient(90deg, #365cff, #121820 50%, #ff3028);
+}
+
+.heatmap-scale span {
+  padding: 8px 4px;
+  color: #fff;
+  font-size: 8px;
+  font-weight: 850;
+  text-align: center;
+  text-shadow: 0 1px 3px #000;
+  text-transform: uppercase;
+}
+
+.heatmap-panel-toggle {
+  border: 1px solid var(--amber);
+  padding: 10px 12px;
+  background: rgba(244, 177, 61, 0.08);
+  color: var(--amber);
+  font: 850 10px Inter, sans-serif;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.heatmap-panel-toggle:hover,
+.heatmap-panel-toggle:focus-visible {
+  background: rgba(244, 177, 61, 0.16);
+}
+
+.heatmap-panel-toggle:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+.heatmap-panel-body > a {
+  margin-top: auto;
+  color: var(--faint);
+  font-size: 9px;
+  text-decoration-color: var(--line);
 }
 
 .mission-body {

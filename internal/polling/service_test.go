@@ -130,6 +130,47 @@ func TestRepeatedStateFailuresResetFeedSession(t *testing.T) {
 	}
 }
 
+func TestVehicleClassChangeInvalidatesCachedMapView(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		writer.Header().Set("Content-Type", "application/json")
+		_, _ = fmt.Fprint(writer, `{"valid":true,"army":"tank","type":"tankModels/us_m1_abrams"}`)
+	}))
+	defer server.Close()
+	service := NewService(warthunder.NewClient(server.URL, time.Second))
+	service.raw.Indicators = map[string]any{
+		"valid": true,
+		"army":  "air",
+		"type":  "f_16c",
+	}
+	service.mapGeneration = 4
+	service.mapRevision = 7
+	service.mapImage = []byte("air")
+	service.heatmapImage = []byte("ground")
+	service.heatmapImageType = "image/jpeg"
+
+	service.pollIndicators(context.Background())
+
+	if service.mapGeneration != 0 {
+		t.Fatalf("map generation = %d, want invalidated cache", service.mapGeneration)
+	}
+	if service.mapRevision != 8 {
+		t.Fatalf("map revision = %d, want 8", service.mapRevision)
+	}
+	if _, _, _, ok := service.MapImage(); ok {
+		t.Fatal("air map remained available after switching to a tank")
+	}
+	ground, contentType, revision, ok := service.GroundMapImage()
+	if !ok || string(ground) != "ground" || contentType != "image/jpeg" || revision != 8 {
+		t.Fatalf(
+			"ground map = %q type=%q revision=%d available=%t",
+			ground,
+			contentType,
+			revision,
+			ok,
+		)
+	}
+}
+
 func TestTransientFailureKeepsRecentSourceDataFresh(t *testing.T) {
 	service := newTestService()
 	now := time.Now()
@@ -195,8 +236,10 @@ func TestMapObjectResponseFromOldEpochIsDiscarded(t *testing.T) {
 func TestGameSessionResetInvalidatesMapImage(t *testing.T) {
 	service := newTestService()
 	service.mapImage = []byte("old")
+	service.heatmapImage = []byte("ground")
 	service.mapImageType = "image/png"
 	service.mapGeneration = 1
+	service.mapRevision = 1
 
 	service.mu.Lock()
 	service.resetGameSessionLocked()
@@ -204,6 +247,77 @@ func TestGameSessionResetInvalidatesMapImage(t *testing.T) {
 
 	if _, _, _, ok := service.MapImage(); ok {
 		t.Fatal("old map image remained available after session reset")
+	}
+	if _, _, _, ok := service.GroundMapImage(); ok {
+		t.Fatal("old heatmap image remained available after session reset")
+	}
+}
+
+func TestGroundMapCachesUnknownNativeRaster(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		writer.Header().Set("Content-Type", "image/jpeg")
+		_, _ = writer.Write([]byte("uncatalogued-ground-map"))
+	}))
+	defer server.Close()
+	service := NewService(warthunder.NewClient(server.URL, time.Second))
+	service.raw.Indicators = map[string]any{"army": "tank"}
+	service.raw.MapInfo = warthunder.MapInfo{
+		Valid:      true,
+		Generation: 3,
+		MapMin:     []float64{0, 0},
+		MapMax:     []float64{4096, 4096},
+	}
+
+	service.pollMapImage(context.Background(), 3)
+
+	body, contentType, _, ok := service.GroundMapImage()
+	if !ok || string(body) != "uncatalogued-ground-map" || contentType != "image/jpeg" {
+		t.Fatalf("ground map = %q type=%q available=%t", body, contentType, ok)
+	}
+}
+
+func TestGroundViewRefetchesMissingRasterAtSameGeneration(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		switch request.URL.Path {
+		case "/map_info.json":
+			writer.Header().Set("Content-Type", "application/json")
+			_, _ = fmt.Fprint(writer, `{
+				"valid":true,
+				"map_generation":3,
+				"map_min":[0,0],
+				"map_max":[4096,4096]
+			}`)
+		case "/map.img":
+			writer.Header().Set("Content-Type", "image/jpeg")
+			_, _ = writer.Write([]byte("ground-map"))
+		default:
+			http.NotFound(writer, request)
+		}
+	}))
+	defer server.Close()
+	service := NewService(warthunder.NewClient(server.URL, time.Second))
+	service.raw.Indicators = map[string]any{"army": "tank"}
+	service.mapGeneration = 3
+
+	service.pollMapInfo(context.Background())
+
+	body, _, _, ok := service.GroundMapImage()
+	if !ok || string(body) != "ground-map" {
+		t.Fatalf("ground map = %q available=%t", body, ok)
+	}
+}
+
+func TestMapGenerationResetRetainsGroundHeatmapImageForCAS(t *testing.T) {
+	service := newTestService()
+	service.heatmapImage = []byte("ground")
+
+	service.mu.Lock()
+	service.resetMapSessionLocked()
+	service.mu.Unlock()
+
+	image, _, _, ok := service.GroundMapImage()
+	if !ok || string(image) != "ground" {
+		t.Fatalf("heatmap image = %q, available=%t", image, ok)
 	}
 }
 

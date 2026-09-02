@@ -1,0 +1,15 @@
+{
+  "objectives": [
+    {
+      "primary": true,
+      "status": "active",
+      "text": "Capture zone A"
+    },
+    {
+      "primary": false,
+      "status": "active",
+      "text": "Defend zone B"
+    }
+  ],
+  "status": "running"
+}

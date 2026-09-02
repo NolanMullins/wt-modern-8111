@@ -1,3 +1,4 @@
+import { vehicleModeForSnapshot } from '../battleMode'
 import type { Snapshot } from '../types'
 import { resolveTargetPosition } from './tracking'
 import type { NavigationSolution, SelectedTarget } from './types'
@@ -26,8 +27,12 @@ export function navigationToTarget(
   const dy = (targetPosition.y - player.y) * bounds.height
   const rangeKm = Math.hypot(dx, dy) / 1000
   const bearingDeg = (Math.atan2(dx, -dy) * 180 / Math.PI + 360) % 360
-  const tas = snapshot.flight.tasKmh
-  const etaSeconds = finite(tas) && tas > 0 ? rangeKm / tas * 3600 : undefined
+  const speedKmh = vehicleModeForSnapshot(snapshot) === 'ground'
+    ? snapshot.ground?.speedKmh
+    : snapshot.flight.tasKmh
+  const etaSeconds = finite(speedKmh) && speedKmh > 0
+    ? rangeKm / speedKmh * 3600
+    : undefined
   return {
     name: target.name,
     bearingDeg,

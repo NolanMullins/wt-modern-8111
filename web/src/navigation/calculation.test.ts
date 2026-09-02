@@ -28,4 +28,39 @@ describe('navigationToTarget', () => {
 
     expect(navigationToTarget(snapshot, mapPointTarget(0.2, 0.1, 8))).toBeUndefined()
   })
+
+  it('uses ground speed for ETA in ground mode', () => {
+    const snapshot = navigationSnapshot(
+      [{ type: 'ground_model', icon: 'Player', x: 0.1, y: 0.2 }],
+      {
+        mapMax: [10_000, 10_000],
+        vehicleClass: 'ground',
+        groundSpeedKmh: 40,
+        tasKmh: 500,
+      },
+    )
+
+    const navigation = navigationToTarget(snapshot, mapPointTarget(0.2, 0.2, 7))
+
+    expect(navigation?.rangeKm).toBeCloseTo(1)
+    expect(navigation?.etaSeconds).toBeCloseTo(90)
+  })
+
+  it('uses aircraft TAS for CAS in a ground battle', () => {
+    const snapshot = navigationSnapshot(
+      [{ type: 'aircraft', icon: 'Player', x: 0.1, y: 0.2 }],
+      {
+        mapMax: [10_000, 10_000],
+        hudType: 1,
+        vehicleClass: 'air',
+        groundSpeedKmh: 40,
+        tasKmh: 500,
+      },
+    )
+
+    const navigation = navigationToTarget(snapshot, mapPointTarget(0.2, 0.2, 7))
+
+    expect(navigation?.rangeKm).toBeCloseTo(1)
+    expect(navigation?.etaSeconds).toBeCloseTo(7.2)
+  })
 })

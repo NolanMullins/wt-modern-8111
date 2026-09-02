@@ -22,6 +22,16 @@ describe('estimateCalibratedFuel', () => {
       marginKg: 928,
     })
   })
+
+  it('keeps aircraft fuel estimation active for CAS in a ground battle', () => {
+    const snapshot = fuelSnapshot(100)
+    snapshot.map.hudType = 1
+
+    expect(estimateCalibratedFuel(snapshot, 1)).toMatchObject({
+      state: 'safe',
+      bingoFuelKg: 72,
+    })
+  })
 })
 
 function fuelSnapshot(throttlePercent: number): Snapshot {

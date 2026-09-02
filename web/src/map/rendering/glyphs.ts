@@ -79,6 +79,7 @@ export function drawPlayer(
   y: number,
   object: MapObject,
   mapSize: number,
+  groundMode = false,
 ) {
   const ratio = pixelRatio()
   const length = Math.max(22 * ratio, mapSize * 0.04)
@@ -90,10 +91,18 @@ export function drawPlayer(
   context.strokeStyle = '#262626'
   context.lineWidth = 2 * ratio
   context.beginPath()
-  context.moveTo(0, -length * 0.6)
-  context.lineTo(width, length * 0.42)
-  context.lineTo(0, length * 0.2)
-  context.lineTo(-width, length * 0.42)
+  if (groundMode) {
+    context.moveTo(0, -length * 0.6)
+    context.lineTo(width, -length * 0.25)
+    context.lineTo(width, length * 0.42)
+    context.lineTo(-width, length * 0.42)
+    context.lineTo(-width, -length * 0.25)
+  } else {
+    context.moveTo(0, -length * 0.6)
+    context.lineTo(width, length * 0.42)
+    context.lineTo(0, length * 0.2)
+    context.lineTo(-width, length * 0.42)
+  }
   context.closePath()
   context.fill()
   context.stroke()
