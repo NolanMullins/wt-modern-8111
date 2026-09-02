@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
@@ -24,11 +25,13 @@ func main() {
 		address        = flag.String("address", "127.0.0.1:17711", "HTTP listen address")
 		wtURL          = flag.String("wt-url", "http://127.0.0.1:8111", "War Thunder service URL")
 		fixtureDir     = flag.String("fixture", "", "directory containing captured JSON fixtures")
-		openUI         = flag.Bool("open", true, "open the dashboard in the default browser")
+		openUI         = flag.Bool("open", runtime.GOOS != "windows", "open the dashboard at launch")
 		callsign       = flag.String("callsign", "", "set and remember the local pilot callsign")
 		forgetCallsign = flag.Bool("forget-callsign", false, "clear the remembered pilot callsign")
 	)
 	flag.Parse()
+	closeLog := configureLogging()
+	defer closeLog()
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -60,6 +63,7 @@ func main() {
 		log.Fatalf("initialize HTTP server: %v", err)
 	}
 
+	dashboardURL := "http://" + *address
 	server := &http.Server{
 		Addr:              *address,
 		Handler:           handler,
@@ -67,11 +71,21 @@ func main() {
 		ReadHeaderTimeout: 5 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}
+	listener, err := net.Listen("tcp", *address)
+	if err != nil {
+		if runtime.GOOS == "windows" && portalRunning(dashboardURL) {
+			if openErr := openBrowser(dashboardURL); openErr != nil {
+				log.Printf("open existing dashboard: %v", openErr)
+			}
+			return
+		}
+		log.Fatalf("listen on %s: %v", *address, err)
+	}
 
 	errs := make(chan error, 1)
 	go func() {
 		log.Printf("WT Modern 8111 listening at http://%s", *address)
-		errs <- server.ListenAndServe()
+		errs <- server.Serve(listener)
 	}()
 
 	if *openUI {
@@ -81,18 +95,24 @@ func main() {
 			select {
 			case <-ctx.Done():
 			case <-timer.C:
-				if err := openBrowser("http://" + *address); err != nil {
+				if err := openBrowser(dashboardURL); err != nil {
 					log.Printf("open browser: %v", err)
 				}
 			}
 		}()
 	}
 
-	select {
-	case <-ctx.Done():
-	case err := <-errs:
-		if err != nil && err != http.ErrServerClosed {
-			log.Fatalf("serve: %v", err)
+	if traySupported() {
+		if err := runTray(ctx, dashboardURL, stop, errs); err != nil {
+			log.Printf("system tray: %v", err)
+		}
+	} else {
+		select {
+		case <-ctx.Done():
+		case err := <-errs:
+			if err != nil && err != http.ErrServerClosed {
+				log.Printf("serve: %v", err)
+			}
 		}
 	}
 
@@ -101,6 +121,26 @@ func main() {
 	if err := server.Shutdown(shutdownCtx); err != nil {
 		log.Printf("shutdown: %v", err)
 	}
+}
+
+func portalRunning(dashboardURL string) bool {
+	client := &http.Client{Timeout: 500 * time.Millisecond}
+	response, err := client.Get(dashboardURL + "/api/v1/status")
+	if err != nil {
+		return false
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		return false
+	}
+	var status struct {
+		State string `json:"state"`
+		Mode  string `json:"mode"`
+	}
+	if err := json.NewDecoder(response.Body).Decode(&status); err != nil {
+		return false
+	}
+	return status.State != "" && status.Mode != ""
 }
 
 func openBrowser(url string) error {

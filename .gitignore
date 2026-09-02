@@ -1,5 +1,6 @@
 # Build output
 wt-modern.exe
+dist/
 internal/webui/dist/*
 !internal/webui/dist/placeholder.txt
 
