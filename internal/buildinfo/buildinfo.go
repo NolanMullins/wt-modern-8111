@@ -8,6 +8,9 @@ import (
 // Version is replaced from a release tag through the Go linker.
 var Version = "dev"
 
+// Revision is replaced with the source commit through the Go linker.
+var Revision = "unknown"
+
 func Current() string {
 	version := strings.TrimSpace(Version)
 	version = strings.TrimPrefix(version, "v")
@@ -28,4 +31,15 @@ func Release() bool {
 		}
 	}
 	return true
+}
+
+func ShortRevision() string {
+	revision := strings.TrimSpace(Revision)
+	if revision == "" {
+		return "unknown"
+	}
+	if len(revision) > 12 {
+		return revision[:12]
+	}
+	return revision
 }

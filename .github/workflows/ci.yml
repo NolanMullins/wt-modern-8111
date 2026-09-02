@@ -14,7 +14,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version-file: .node-version
           cache: npm
           cache-dependency-path: web/package-lock.json
 
@@ -43,7 +43,7 @@ jobs:
       - name: Build Windows tray application
         run: |
           GOOS=windows GOARCH=amd64 go vet ./...
-          GOOS=windows GOARCH=amd64 go build -ldflags="-H windowsgui -X github.com/NolanMullins/wt-modern-8111/internal/buildinfo.Version=0.0.0" -o wt-modern.exe ./cmd/wt-modern
+          GOOS=windows GOARCH=amd64 go build -ldflags="-H windowsgui -X github.com/NolanMullins/wt-modern-8111/internal/buildinfo.Version=0.0.0 -X github.com/NolanMullins/wt-modern-8111/internal/buildinfo.Revision=${{ github.sha }}" -o wt-modern.exe ./cmd/wt-modern
 
   windows-tray:
     runs-on: windows-latest
@@ -61,7 +61,7 @@ jobs:
         run: go test ./cmd/wt-modern ./internal/autostart ./internal/updater
 
       - name: Build Windows tray application
-        run: go build -ldflags="-H windowsgui -X github.com/NolanMullins/wt-modern-8111/internal/buildinfo.Version=0.0.0" -o wt-modern.exe ./cmd/wt-modern
+        run: go build -ldflags="-H windowsgui -X github.com/NolanMullins/wt-modern-8111/internal/buildinfo.Version=0.0.0 -X github.com/NolanMullins/wt-modern-8111/internal/buildinfo.Revision=${{ github.sha }}" -o wt-modern.exe ./cmd/wt-modern
 
   windows-package:
     runs-on: windows-latest
@@ -70,7 +70,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version-file: .node-version
           cache: npm
           cache-dependency-path: web/package-lock.json
 
@@ -79,7 +79,7 @@ jobs:
           go-version-file: go.mod
 
       - name: Install Inno Setup
-        run: choco install innosetup --no-progress -y
+        run: choco install innosetup --version=6.7.1 --no-progress -y
 
       - name: Build installer
         shell: pwsh

@@ -32,9 +32,11 @@ func New(service Source) (http.Handler, error) {
 		writeJSON(writer, struct {
 			telemetry.Connection
 			AppVersion string `json:"appVersion"`
+			Revision   string `json:"revision"`
 		}{
 			Connection: service.Snapshot().Connection,
 			AppVersion: buildinfo.Current(),
+			Revision:   buildinfo.ShortRevision(),
 		})
 	})
 	mux.HandleFunc("GET /api/v1/snapshot", func(writer http.ResponseWriter, request *http.Request) {
@@ -158,6 +160,7 @@ func assetContentType(name string) string {
 
 func securityHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		writer.Header().Set("X-WT-Modern-Version", buildinfo.Current())
 		writer.Header().Set("X-Content-Type-Options", "nosniff")
 		writer.Header().Set("Referrer-Policy", "no-referrer")
 		writer.Header().Set("Content-Security-Policy", "default-src 'self'; img-src 'self' blob:; style-src 'self'; script-src 'self'; connect-src 'self'")

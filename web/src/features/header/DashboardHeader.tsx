@@ -4,18 +4,25 @@ export function DashboardHeader({
   snapshot,
   transport,
   error,
+  appVersion,
 }: {
   snapshot: Snapshot | null
   transport: string
   error?: string
+  appVersion: string
 }) {
   const connection = connectionView(snapshot, transport, error)
+  const versionLabel = /^\d+\.\d+\.\d+$/.test(appVersion)
+    ? ` · v${appVersion}`
+    : appVersion === 'dev'
+      ? ' · development build'
+      : ''
   return (
     <header className="app-header">
       <i className="brand-flag" aria-hidden="true" />
       <div className="brand">
         <strong>WT Modern 8111</strong>
-        <span>Simulator flight desk</span>
+        <span>Simulator flight desk{versionLabel}</span>
       </div>
       <div className="header-context">
         <b>{snapshot?.vehicle.type?.replaceAll('_', ' ').toUpperCase() || 'NO VEHICLE'}</b>

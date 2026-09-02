@@ -84,15 +84,20 @@ func TestStatusIncludesApplicationVersion(t *testing.T) {
 
 	handler.ServeHTTP(response, request)
 
+	if response.Header().Get("X-WT-Modern-Version") == "" {
+		t.Fatal("status response is missing version header")
+	}
 	var status struct {
 		State      string `json:"state"`
 		Mode       string `json:"mode"`
 		AppVersion string `json:"appVersion"`
+		Revision   string `json:"revision"`
 	}
 	if err := json.NewDecoder(response.Body).Decode(&status); err != nil {
 		t.Fatal(err)
 	}
-	if status.State != "live" || status.Mode != "live" || status.AppVersion == "" {
+	if status.State != "live" || status.Mode != "live" ||
+		status.AppVersion == "" || status.Revision == "" {
 		t.Fatalf("unexpected status: %+v", status)
 	}
 }

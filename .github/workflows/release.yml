@@ -1,12 +1,22 @@
 name: Release
 
 on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Semantic version to publish, without the v prefix"
+        required: true
+        type: string
   push:
     tags:
       - "v[0-9]+.[0-9]+.[0-9]+"
 
 permissions:
   contents: write
+
+concurrency:
+  group: wt-modern-release
+  cancel-in-progress: false
 
 jobs:
   windows:
@@ -16,7 +26,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version-file: .node-version
           cache: npm
           cache-dependency-path: web/package-lock.json
 
@@ -24,25 +34,40 @@ jobs:
         with:
           go-version-file: go.mod
 
+      - name: Resolve release version
+        shell: pwsh
+        run: |
+          if ("${{ github.event_name }}" -eq "workflow_dispatch") {
+            $version = "${{ inputs.version }}"
+          } else {
+            $version = "${{ github.ref_name }}".TrimStart("v")
+          }
+          if ($version -notmatch '^[0-9]+\.[0-9]+\.[0-9]+$') {
+            throw "Invalid semantic version: $version"
+          }
+          "RELEASE_VERSION=$version" >> $env:GITHUB_ENV
+          "RELEASE_TAG=v$version" >> $env:GITHUB_ENV
+
       - name: Install Inno Setup
-        run: choco install innosetup --no-progress -y
+        run: choco install innosetup --version=6.7.1 --no-progress -y
 
       - name: Build release assets
         shell: pwsh
-        run: |
-          $version = "${{ github.ref_name }}".TrimStart("v")
-          .\scripts\build-installer.ps1 -Version $version
+        run: .\scripts\build-installer.ps1 -Version $env:RELEASE_VERSION
 
       - name: Publish GitHub release
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${{ github.ref_name }}" `
+          gh release create "$env:RELEASE_TAG" `
             "dist\wt-modern-windows-amd64.exe" `
             "dist\wt-modern-setup.exe" `
             "dist\checksums.txt" `
-            --title "WT Modern 8111 ${{ github.ref_name }}" `
+            --target "$env:GITHUB_SHA" `
+            --title "WT Modern 8111 $env:RELEASE_TAG" `
             --generate-notes `
             --draft
-          gh release edit "${{ github.ref_name }}" --draft=false
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          gh release edit "$env:RELEASE_TAG" --draft=false
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
