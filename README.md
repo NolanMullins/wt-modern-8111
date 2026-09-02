@@ -50,7 +50,8 @@ icon opens it; use `-open=true` to open it immediately at launch.
 
 On Windows, the companion runs from the notification area. Left-click the tray
 icon or choose **Open Dashboard**. The tray menu also provides
-**Start with Windows** and **Quit**.
+**Start with Windows** and **Quit**. Build the executable before enabling
+automatic startup; `go run` uses a temporary executable that Windows removes.
 
 Set or replace the remembered pilot callsign:
 

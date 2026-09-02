@@ -18,7 +18,10 @@ import (
 	"github.com/NolanMullins/wt-modern-8111/internal/buildinfo"
 	"github.com/NolanMullins/wt-modern-8111/internal/updater"
 	"github.com/gogpu/systray"
+	"golang.org/x/sys/windows"
 )
+
+var getDoubleClickTime = windows.NewLazySystemDLL("user32.dll").NewProc("GetDoubleClickTime")
 
 func traySupported() bool {
 	return true
@@ -31,7 +34,14 @@ func runTray(
 	serverErrors <-chan error,
 ) error {
 	tray := systray.New()
+	var lastDashboardOpen atomic.Int64
+	doubleClickMilliseconds := systemDoubleClickMilliseconds()
 	openDashboard := func() {
+		now := time.Now().UnixMilli()
+		previous := lastDashboardOpen.Swap(now)
+		if previous != 0 && now-previous <= doubleClickMilliseconds {
+			return
+		}
 		if err := openBrowser(dashboardURL); err != nil {
 			tray.ShowNotification("WT Modern 8111", "Could not open the dashboard.")
 		}
@@ -169,6 +179,14 @@ func automaticUpdates(ctx context.Context, check func()) {
 			check()
 		}
 	}
+}
+
+func systemDoubleClickMilliseconds() int64 {
+	milliseconds, _, _ := getDoubleClickTime.Call()
+	if milliseconds == 0 {
+		return 500
+	}
+	return int64(milliseconds)
 }
 
 func showTrayIcon(tray *systray.SystemTray, timeout time.Duration) bool {
