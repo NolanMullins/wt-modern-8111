@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -103,9 +104,9 @@ func TestClientDoesNotCacheCancellation(t *testing.T) {
 }
 
 func TestClientCachesUpstreamTimeout(t *testing.T) {
-	requests := 0
+	var requests atomic.Int32
 	upstream := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
-		requests++
+		requests.Add(1)
 		time.Sleep(50 * time.Millisecond)
 	}))
 	defer upstream.Close()
@@ -121,7 +122,7 @@ func TestClientCachesUpstreamTimeout(t *testing.T) {
 	if _, err := client.Fetch(context.Background(), []byte("map")); err == nil {
 		t.Fatal("cached request unexpectedly succeeded")
 	}
-	if requests != 1 {
-		t.Fatalf("requests = %d, want 1", requests)
+	if requests.Load() != 1 {
+		t.Fatalf("requests = %d, want 1", requests.Load())
 	}
 }
