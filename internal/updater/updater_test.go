@@ -56,7 +56,8 @@ func TestCheckAndStageVerifiedRelease(t *testing.T) {
 	manager := &Manager{
 		currentVersion: "1.0.0",
 		apiURL:         server.URL + "/latest",
-		http:           server.Client(),
+		apiHTTP:        server.Client(),
+		assetHTTP:      server.Client(),
 		stagingDir:     t.TempDir(),
 		targetPath:     filepath.Join(t.TempDir(), "wt-modern.exe"),
 		allowInsecure:  true,
@@ -99,7 +100,8 @@ func TestCheckAndStageRejectsChecksumMismatch(t *testing.T) {
 	manager := &Manager{
 		currentVersion: "1.0.0",
 		apiURL:         server.URL + "/latest",
-		http:           server.Client(),
+		apiHTTP:        server.Client(),
+		assetHTTP:      server.Client(),
 		stagingDir:     filepath.Join(t.TempDir(), "updates"),
 		targetPath:     filepath.Join(t.TempDir(), "wt-modern.exe"),
 		allowInsecure:  true,

@@ -59,8 +59,13 @@ func Apply(target string, processID uint32) error {
 	}
 	command := exec.Command(target, "-open=false", "-cleanup-update", staged)
 	if err := command.Start(); err != nil {
-		_ = os.Remove(target)
-		_ = os.Rename(backup, target)
+		if rollbackErr := os.Rename(backup, target); rollbackErr != nil {
+			return fmt.Errorf(
+				"restart updated application: %v; restore previous version: %w",
+				err,
+				rollbackErr,
+			)
+		}
 		return fmt.Errorf("restart updated application: %w", err)
 	}
 	return nil

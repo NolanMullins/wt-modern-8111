@@ -38,7 +38,8 @@ type Release struct {
 type Manager struct {
 	currentVersion string
 	apiURL         string
-	http           *http.Client
+	apiHTTP        *http.Client
+	assetHTTP      *http.Client
 	stagingDir     string
 	targetPath     string
 	allowInsecure  bool
@@ -56,7 +57,8 @@ func New(currentVersion string) (*Manager, error) {
 	return &Manager{
 		currentVersion: currentVersion,
 		apiURL:         defaultAPIURL,
-		http:           &http.Client{Timeout: 30 * time.Second},
+		apiHTTP:        &http.Client{Timeout: 30 * time.Second},
+		assetHTTP:      &http.Client{Timeout: 10 * time.Minute},
 		stagingDir:     filepath.Join(cache, "wt-modern-8111", "updates"),
 		targetPath:     executable,
 	}, nil
@@ -88,7 +90,7 @@ func (manager *Manager) latest(ctx context.Context) (*Release, error) {
 	request.Header.Set("Accept", "application/vnd.github+json")
 	request.Header.Set("X-GitHub-Api-Version", "2026-03-10")
 	request.Header.Set("User-Agent", "WT-Modern-8111/"+manager.currentVersion)
-	response, err := manager.http.Do(request)
+	response, err := manager.apiHTTP.Do(request)
 	if err != nil {
 		return nil, fmt.Errorf("check latest release: %w", err)
 	}
@@ -203,7 +205,7 @@ func (manager *Manager) download(ctx context.Context, location string, limit int
 	}
 	request.Header.Set("Accept", "application/octet-stream")
 	request.Header.Set("User-Agent", "WT-Modern-8111/"+manager.currentVersion)
-	response, err := manager.http.Do(request)
+	response, err := manager.assetHTTP.Do(request)
 	if err != nil {
 		return nil, err
 	}
