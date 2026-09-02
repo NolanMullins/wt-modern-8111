@@ -61,8 +61,7 @@ func runTray(
 			tray.ShowNotification("WT Modern 8111", "Could not open the dashboard.")
 		}
 	})
-	tray.Show()
-	if !waitForTrayIcon(tray, 2*time.Second) {
+	if !showTrayIcon(tray, 30*time.Second) {
 		stop()
 		tray.Remove()
 		return fmt.Errorf("tray icon could not be created")
@@ -93,14 +92,15 @@ func runTray(
 	}
 }
 
-func waitForTrayIcon(tray *systray.SystemTray, timeout time.Duration) bool {
+func showTrayIcon(tray *systray.SystemTray, timeout time.Duration) bool {
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
+		tray.Show()
 		_, _, width, height := tray.Bounds()
 		if width > 0 && height > 0 {
 			return true
 		}
-		time.Sleep(50 * time.Millisecond)
+		time.Sleep(250 * time.Millisecond)
 	}
 	return false
 }
