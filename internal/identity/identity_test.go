@@ -1,6 +1,7 @@
 package identity
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 )
@@ -34,11 +35,41 @@ func TestMatchesChatSenderWithoutClanTag(t *testing.T) {
 	if !resolver.Matches("DEERSLUG") {
 		t.Fatal("chat sender without clan tag should match")
 	}
+
 	if resolver.Matches("FISHY THUNDER") {
 		t.Fatal("teammate must not match")
 	}
 	if resolver.Matches("") {
 		t.Fatal("empty sender must not match")
+	}
+}
+
+func TestUnconfirmedGuessDoesNotMatchAndResets(t *testing.T) {
+	resolver := NewResolver("")
+	resolver.Observe("=GRIND= DEERSLUG (J-7D) destroyed Truck", "j_7d")
+
+	if resolver.Matches("DEERSLUG") {
+		t.Fatal("unconfirmed identity must not authorize chat ownership")
+	}
+	resolver.ResetSession()
+	if callsign, confirmed := resolver.Callsign(); callsign != "" || confirmed {
+		t.Fatalf("reset retained unconfirmed identity %q confirmed=%v", callsign, confirmed)
+	}
+}
+
+func TestClearRemovesPersistedCallsign(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "identity.json")
+	resolver := NewResolver(path)
+	resolver.SetCallsign("DEERSLUG")
+
+	if err := resolver.Clear(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Fatalf("identity file still exists: %v", err)
+	}
+	if callsign, confirmed := resolver.Callsign(); callsign != "" || confirmed {
+		t.Fatalf("clear retained identity %q confirmed=%v", callsign, confirmed)
 	}
 }
 

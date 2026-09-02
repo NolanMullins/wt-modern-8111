@@ -78,6 +78,35 @@ export function objectPosition(object: MapObject): Point | undefined {
     : undefined
 }
 
+export function distanceToMapObject(point: Point, object: MapObject): number | undefined {
+  if (
+    object.type === 'airfield' &&
+    finite(object.sx) &&
+    finite(object.sy) &&
+    finite(object.ex) &&
+    finite(object.ey)
+  ) {
+    const dx = object.ex - object.sx
+    const dy = object.ey - object.sy
+    const lengthSquared = dx * dx + dy * dy
+    const interpolation = lengthSquared === 0
+      ? 0
+      : Math.max(
+          0,
+          Math.min(
+            1,
+            ((point.x - object.sx) * dx + (point.y - object.sy) * dy) / lengthSquared,
+          ),
+        )
+    return Math.hypot(
+      point.x - (object.sx + interpolation * dx),
+      point.y - (object.sy + interpolation * dy),
+    )
+  }
+  const position = objectPosition(object)
+  return position ? Math.hypot(point.x - position.x, point.y - position.y) : undefined
+}
+
 function finite(value: number | undefined): value is number {
   return value !== undefined && Number.isFinite(value)
 }

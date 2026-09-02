@@ -22,7 +22,6 @@ describe('moving target tracking', () => {
     const snapshot = navigationSnapshot([
       { type: 'defending_point', x: 0.2, y: 0.2 },
       { ...initialObject, x: 0.51, y: 0.5 },
-      { ...initialObject, x: 0.52, y: 0.5 },
       { type: 'aircraft', icon: 'Player', x: 0.1, y: 0.1 },
     ])
 
@@ -32,10 +31,22 @@ describe('moving target tracking', () => {
       y: 0.5,
       object: { index: 1 },
     })
+
     expect(navigationToTarget(snapshot, target)).toMatchObject({
       targetX: 0.51,
       targetY: 0.5,
     })
+  })
+
+  it('drops an ambiguous identity instead of switching to a neighbor', () => {
+    const target = targetFromMapObject(initialObject, 0, 7)!
+    const snapshot = navigationSnapshot([
+      { type: 'defending_point', x: 0.2, y: 0.2 },
+      { ...initialObject, x: 0.51, y: 0.5 },
+      { ...initialObject, x: 0.52, y: 0.5 },
+    ])
+
+    expect(reconcileSelectedTarget(snapshot, target)).toBeNull()
   })
 
   it('drops objects beyond the tracking radius or with changed identity', () => {

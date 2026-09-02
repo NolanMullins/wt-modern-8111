@@ -71,6 +71,23 @@ func (r *Resolver) SetCallsign(callsign string) {
 	r.save(callsign)
 }
 
+// Clear removes any explicit or deduced identity, including the persisted file.
+func (r *Resolver) Clear() error {
+	r.mu.Lock()
+	r.callsign = ""
+	r.confirmed = false
+	r.candidates = make(map[string]int)
+	storePath := r.storePath
+	r.mu.Unlock()
+	if storePath == "" {
+		return nil
+	}
+	if err := os.Remove(storePath); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return nil
+}
+
 // Observe correlates a damage-feed line against the locally flown vehicle. It
 // returns true when the callsign becomes confirmed as a result of this record.
 func (r *Resolver) Observe(damageMessage, localVehicle string) bool {
@@ -109,8 +126,9 @@ func (r *Resolver) Matches(sender string) bool {
 	}
 	r.mu.RLock()
 	callsign := r.callsign
+	confirmed := r.confirmed
 	r.mu.RUnlock()
-	if callsign == "" {
+	if callsign == "" || !confirmed {
 		return false
 	}
 	if strings.EqualFold(callsign, sender) {
@@ -179,6 +197,9 @@ func (r *Resolver) ResetSession() {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.candidates = make(map[string]int)
+	if !r.confirmed {
+		r.callsign = ""
+	}
 }
 
 // BareName strips clan tags and decorations, leaving the player name that

@@ -1,5 +1,5 @@
 import type { MapObject } from '../types'
-import { objectPosition, type Point } from './geometry'
+import { distanceToMapObject, objectPosition, type Point } from './geometry'
 
 export interface MapObjectHit {
   object: MapObject
@@ -18,7 +18,8 @@ export function nearestSelectableMapObjectHit(
     if (object.icon === 'Player') return
     const position = objectPosition(object)
     if (!position) return
-    const distance = Math.hypot(position.x - point.x, position.y - point.y)
+    const distance = distanceToMapObject(point, object)
+    if (distance === undefined) return
     if (distance > radius || (nearest && distance >= nearest.distance)) return
     nearest = { object, index, position, distance }
   })

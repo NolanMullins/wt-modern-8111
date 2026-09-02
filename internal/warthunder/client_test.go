@@ -1,9 +1,26 @@
 package warthunder
 
 import (
+	"encoding/json"
 	"reflect"
 	"testing"
 )
+
+func TestMapInfoDirectUnmarshalUsesWireNormalization(t *testing.T) {
+	var info MapInfo
+	body := []byte(`{
+		"grid_steps":["6400","6400"],
+		"map_min":["-32768","-32768"],
+		"map_max":["32768","32768"],
+		"map_generation":"2"
+	}`)
+	if err := json.Unmarshal(body, &info); err != nil {
+		t.Fatal(err)
+	}
+	if !info.Valid || info.Generation != 2 || len(info.GridSteps) != 2 {
+		t.Fatalf("unexpected normalized map info: %+v", info)
+	}
+}
 
 func TestParseMapInfoAcceptsNumericStrings(t *testing.T) {
 	info, err := parseMapInfo(map[string]any{

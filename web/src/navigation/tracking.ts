@@ -43,7 +43,7 @@ export function reconcileSelectedTarget(
 function trackedObject(snapshot: Snapshot, target: SelectedTarget) {
   const identity = target.object
   if (!identity) return undefined
-  const nearest = snapshot.map.objects
+  const matches = snapshot.map.objects
     .map((object, index) => ({ object, index }))
     .filter(({ object }) => sameObjectKind(object, identity))
     .map((entry) => {
@@ -57,8 +57,11 @@ function trackedObject(snapshot: Snapshot, target: SelectedTarget) {
         : undefined
     })
     .filter((entry): entry is NonNullable<typeof entry> => entry !== undefined)
-    .sort((left, right) => left.distance - right.distance)[0]
-  return nearest?.distance <= targetTrackingRadius ? nearest : undefined
+    .filter((entry) => entry.distance <= targetTrackingRadius)
+    .sort((left, right) => left.distance - right.distance)
+  const indexed = matches.find((entry) => entry.index === identity.index)
+  if (indexed) return indexed
+  return matches.length === 1 ? matches[0] : undefined
 }
 
 function sameObjectKind(

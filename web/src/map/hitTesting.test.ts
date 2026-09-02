@@ -22,4 +22,17 @@ describe('nearestSelectableMapObjectHit', () => {
     expect(nearestSelectableMapObjectHit(objects, { x: 0.8, y: 0.8 }, 0.03))
       .toBeUndefined()
   })
+
+  it('selects an airfield from a visible runway endpoint', () => {
+    const runway: MapObject = {
+      type: 'airfield',
+      sx: 0.1,
+      sy: 0.2,
+      ex: 0.5,
+      ey: 0.2,
+    }
+
+    expect(nearestSelectableMapObjectHit([runway], { x: 0.49, y: 0.2 }, 0.02)?.object)
+      .toBe(runway)
+  })
 })

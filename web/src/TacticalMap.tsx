@@ -1,5 +1,5 @@
-import { useEffect, useRef } from 'react'
-import type { MouseEvent } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
+import type { ChangeEvent, KeyboardEvent, MouseEvent } from 'react'
 import {
   mapPointTarget,
   navigationToTarget,
@@ -27,7 +27,16 @@ export function TacticalMap({
   onSelectTarget,
 }: TacticalMapProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const targetPickerRef = useRef<HTMLSelectElement>(null)
   const mapImage = useMapImage(snapshot)
+  const keyboardTargets = useMemo(() => (snapshot?.map.objects ?? [])
+    .map((object, index) => ({
+      index,
+      target: targetFromMapObject(object, index, snapshot?.map.generation),
+    }))
+    .filter((entry): entry is { index: number; target: SelectedTarget } =>
+      entry.target !== undefined,
+    ), [snapshot])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -58,7 +67,14 @@ export function TacticalMap({
     const resize = new ResizeObserver(draw)
     resize.observe(canvas)
     draw()
-    return () => resize.disconnect()
+    const temporalOverlay = snapshot?.allyMarks.some(
+      (mark) => new Date(mark.expiresAt).getTime() > Date.now(),
+    )
+    const redrawTimer = temporalOverlay ? window.setInterval(draw, 250) : undefined
+    return () => {
+      resize.disconnect()
+      if (redrawTimer !== undefined) window.clearInterval(redrawTimer)
+    }
   }, [mapImage, navigation, snapshot])
 
   const selectTarget = (event: MouseEvent<HTMLCanvasElement>) => {
@@ -81,11 +97,46 @@ export function TacticalMap({
     if (target) onSelectTarget(target)
   }
 
+  const selectKeyboardTarget = (event: ChangeEvent<HTMLSelectElement>) => {
+    const index = Number(event.currentTarget.value)
+    const selection = keyboardTargets.find((entry) => entry.index === index)
+    if (selection) onSelectTarget(selection.target)
+    event.currentTarget.value = ''
+  }
+
+  const openKeyboardTargets = (event: KeyboardEvent<HTMLCanvasElement>) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return
+    event.preventDefault()
+    targetPickerRef.current?.focus()
+  }
+
   const selectedNavigation = navigation ??
     navigationToTarget(snapshot, selectedTarget)
   const label = selectedNavigation
     ? `War Thunder tactical map. Active destination: ${selectedNavigation.name}`
     : 'War Thunder tactical map. Click any object or point to select a destination.'
 
-  return <canvas ref={canvasRef} aria-label={label} onClick={selectTarget} />
+  return (
+    <>
+      <canvas
+        ref={canvasRef}
+        aria-label={`${label} Press Enter to focus the target list.`}
+        onClick={selectTarget}
+        onKeyDown={openKeyboardTargets}
+        tabIndex={0}
+      />
+      <select
+        ref={targetPickerRef}
+        aria-label="Select a tactical map target"
+        className="map-target-picker"
+        defaultValue=""
+        onChange={selectKeyboardTarget}
+      >
+        <option value="">Select map target</option>
+        {keyboardTargets.map(({ index, target }) => (
+          <option key={target.key} value={index}>{target.name}</option>
+        ))}
+      </select>
+    </>
+  )
 }

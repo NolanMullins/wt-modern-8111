@@ -48,6 +48,18 @@ go run .\cmd\wt-modern
 The dashboard opens at `http://127.0.0.1:17711`. The `-open=false` flag disables
 automatic browser launch.
 
+Set or replace the remembered pilot callsign:
+
+```powershell
+go run .\cmd\wt-modern -callsign "=SQUAD= PilotName"
+```
+
+Clear the remembered callsign:
+
+```powershell
+go run .\cmd\wt-modern -forget-callsign
+```
+
 Run with the included offline fixture:
 
 ```powershell

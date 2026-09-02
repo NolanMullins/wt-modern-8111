@@ -115,6 +115,14 @@ func (s *Service) Snapshot() telemetry.Snapshot {
 	return s.snapshot
 }
 
+func (s *Service) SetCallsign(callsign string) {
+	s.identity.SetCallsign(callsign)
+}
+
+func (s *Service) ClearCallsign() error {
+	return s.identity.Clear()
+}
+
 func (s *Service) MapImage() ([]byte, string, int, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()

@@ -27,10 +27,10 @@ func (s *Service) appendFeedLocked(kind string, records []warthunder.FeedRecord)
 		})
 	}
 	sort.SliceStable(s.raw.Feed, func(i, j int) bool {
-		if s.raw.Feed[i].Time != s.raw.Feed[j].Time {
-			return s.raw.Feed[i].Time > s.raw.Feed[j].Time
+		if !s.raw.Feed[i].AddedAt.Equal(s.raw.Feed[j].AddedAt) {
+			return s.raw.Feed[i].AddedAt.After(s.raw.Feed[j].AddedAt)
 		}
-		return s.raw.Feed[i].AddedAt.After(s.raw.Feed[j].AddedAt)
+		return s.raw.Feed[i].Time > s.raw.Feed[j].Time
 	})
 	if len(s.raw.Feed) > maxFeedItems {
 		removed := s.raw.Feed[maxFeedItems:]

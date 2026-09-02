@@ -21,6 +21,10 @@ describe('parseSnapshotPayload', () => {
       ok: false,
       error: 'Snapshot payload does not match the v1 envelope',
     })
+    expect(parseSnapshotPayload(JSON.stringify({
+      ...makeSnapshot(4, '2026-09-01T22:00:04Z'),
+      systems: { engines: null },
+    }))).toMatchObject({ ok: false })
   })
 })
 
@@ -37,6 +41,13 @@ describe('selectNewerSnapshot', () => {
     const afterRestart = makeSnapshot(1, '2026-09-01T22:01:00Z')
 
     expect(selectNewerSnapshot(beforeRestart, afterRestart)).toBe(afterRestart)
+  })
+
+  it('rejects a delayed pre-restart snapshot with a higher sequence', () => {
+    const afterRestart = makeSnapshot(1, '2026-09-01T22:01:00Z')
+    const delayedOldProcess = makeSnapshot(50, '2026-09-01T22:00:50Z')
+
+    expect(selectNewerSnapshot(afterRestart, delayedOldProcess)).toBe(afterRestart)
   })
 })
 

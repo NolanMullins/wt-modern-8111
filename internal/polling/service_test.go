@@ -48,6 +48,26 @@ func TestHUDPrimingDiscardsHistoryThenAcceptsNewRecords(t *testing.T) {
 	}
 }
 
+func TestMixedFeedOrdersByReceiptTime(t *testing.T) {
+	service := newTestService()
+	now := time.Now()
+	service.now = func() time.Time { return now }
+	service.appendFeedLocked("chat", []warthunder.FeedRecord{{
+		ID:      1,
+		Time:    500,
+		Message: "older chat",
+	}})
+	now = now.Add(time.Second)
+	service.appendFeedLocked("damage", []warthunder.FeedRecord{{
+		ID:      2,
+		Message: "newer damage",
+	}})
+
+	if got := service.raw.Feed[0]; got.Kind != "damage" || got.Message != "newer damage" {
+		t.Fatalf("first feed item = %+v, want newer damage record", got)
+	}
+}
+
 func TestSingleLiveDamageRecordDoesNotConfirmIdentity(t *testing.T) {
 	requests := 0
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {

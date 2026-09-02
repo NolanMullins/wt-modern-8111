@@ -352,21 +352,17 @@ storage when those features are introduced.
 Initial storage:
 
 ```text
-%LOCALAPPDATA%\WT Modern 8111\
-|-- config.json
-|-- logs\
-`-- cache\
+%APPDATA%\wt-modern-8111\
+`-- identity.json
 ```
 
-Store only:
+Current persisted data:
 
-- Preferred units
-- Theme and brightness
-- Map-layer visibility
-- LAN preference
-- Launch behavior
+- Confirmed or explicitly configured pilot callsign
 
-Do not retain telemetry, chat, or player names by default.
+Telemetry, chat messages, and other player names remain in memory for the live
+dashboard and are not written to disk. The `-callsign` and `-forget-callsign`
+flags replace or clear the persisted identity.
 
 ## Security and privacy
 
@@ -375,7 +371,8 @@ Do not retain telemetry, chat, or player names by default.
 - Require pairing for LAN browser clients.
 - Validate origins and authentication for state-changing requests.
 - Poll only fixed, allowlisted War Thunder paths.
-- Do not collect game chat unless a future feature explicitly requires it.
+- Process team game chat locally for the event feed and radio-command features.
+- Keep game chat in memory only.
 - Never expose the service to the public internet.
 - Never read game memory.
 - Never inject into or hook the game process.

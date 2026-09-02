@@ -10,15 +10,20 @@ import type { Snapshot } from '../../types'
 export function useSelectedNavigation(snapshot: Snapshot | null) {
   const [selectedTarget, setSelectedTarget] = useState<SelectedTarget | null>(null)
   const lastGameTargetKey = useRef<string | null>(null)
+  const radioRTBWasActive = useRef(false)
   const gameTarget = useMemo(() => inGameTarget(snapshot), [snapshot])
   const gameTargetKey = gameTarget?.key ?? null
 
   useEffect(() => {
     if (!snapshot) return
     const previousGameTargetKey = lastGameTargetKey.current
+    const radioRTBActive = snapshot.navigation != null
+    const radioRTBActivated = radioRTBActive && !radioRTBWasActive.current
     lastGameTargetKey.current = gameTargetKey
+    radioRTBWasActive.current = radioRTBActive
     // oxlint-disable-next-line react/set-state-in-effect
     setSelectedTarget((current) => {
+      if (radioRTBActivated) return null
       if (gameTarget && gameTargetKey !== previousGameTargetKey) return gameTarget
       if (
         !gameTarget &&

@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -20,10 +21,12 @@ import (
 
 func main() {
 	var (
-		address    = flag.String("address", "127.0.0.1:17711", "HTTP listen address")
-		wtURL      = flag.String("wt-url", "http://127.0.0.1:8111", "War Thunder service URL")
-		fixtureDir = flag.String("fixture", "", "directory containing captured JSON fixtures")
-		openUI     = flag.Bool("open", true, "open the dashboard in the default browser")
+		address        = flag.String("address", "127.0.0.1:17711", "HTTP listen address")
+		wtURL          = flag.String("wt-url", "http://127.0.0.1:8111", "War Thunder service URL")
+		fixtureDir     = flag.String("fixture", "", "directory containing captured JSON fixtures")
+		openUI         = flag.Bool("open", true, "open the dashboard in the default browser")
+		callsign       = flag.String("callsign", "", "set and remember the local pilot callsign")
+		forgetCallsign = flag.Bool("forget-callsign", false, "clear the remembered pilot callsign")
 	)
 	flag.Parse()
 
@@ -42,6 +45,14 @@ func main() {
 	if err != nil {
 		log.Fatalf("initialize telemetry service: %v", err)
 	}
+	if *forgetCallsign {
+		if err := service.ClearCallsign(); err != nil {
+			log.Fatalf("clear callsign: %v", err)
+		}
+	}
+	if *callsign != "" {
+		service.SetCallsign(*callsign)
+	}
 	service.Start(ctx)
 
 	handler, err := appserver.New(service)
@@ -52,6 +63,7 @@ func main() {
 	server := &http.Server{
 		Addr:              *address,
 		Handler:           handler,
+		BaseContext:       func(net.Listener) context.Context { return ctx },
 		ReadHeaderTimeout: 5 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}

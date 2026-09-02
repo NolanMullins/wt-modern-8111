@@ -52,7 +52,7 @@ export function useFuelEstimate(snapshot: Snapshot | null): FuelEstimate {
     const burnKgPerSecond = calibration.current.burnKgPerSecond
     if (burnKgPerSecond !== undefined) {
       // oxlint-disable-next-line react/set-state-in-effect
-      setEstimate(calculateFuelEstimate(snapshot, burnKgPerSecond))
+      setEstimate(estimateCalibratedFuel(snapshot, burnKgPerSecond))
       return
     }
 
@@ -96,10 +96,24 @@ export function useFuelEstimate(snapshot: Snapshot | null): FuelEstimate {
     calibration.current.burnKgPerSecond = fuelUsed / sampleSeconds
     samples.current = []
     // oxlint-disable-next-line react/set-state-in-effect
-    setEstimate(calculateFuelEstimate(snapshot, calibration.current.burnKgPerSecond))
+    setEstimate(estimateCalibratedFuel(snapshot, calibration.current.burnKgPerSecond))
   }, [snapshot])
 
   return estimate
+}
+
+export function estimateCalibratedFuel(
+  snapshot: Snapshot,
+  burnKgPerSecond: number,
+): FuelEstimate {
+  if (calibrationThrottleState(snapshot) === 'afterburner') {
+    return {
+      state: 'unavailable',
+      label: 'Afterburner outside calibrated fuel model',
+      burnKgPerHour: burnKgPerSecond * 3600,
+    }
+  }
+  return calculateFuelEstimate(snapshot, burnKgPerSecond)
 }
 
 function calculateFuelEstimate(snapshot: Snapshot, burnKgPerSecond: number): FuelEstimate {

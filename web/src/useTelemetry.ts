@@ -11,12 +11,13 @@ export function useTelemetry() {
 
   useEffect(() => {
     let active = true
+    let streamConnected = false
 
-    const acceptPayload = (payload: string) => {
+    const acceptPayload = (payload: string, source: 'bootstrap' | 'stream') => {
       const result = parseSnapshotPayload(payload)
       if (!result.ok) {
         setError(result.error)
-        setTransport('reconnecting')
+        if (source === 'stream' || !streamConnected) setTransport('reconnecting')
         return false
       }
       setError(undefined)
@@ -30,25 +31,27 @@ export function useTelemetry() {
         return response.text()
       })
       .then((payload) => {
-        if (active) acceptPayload(payload)
+        if (active) acceptPayload(payload, 'bootstrap')
       })
       .catch((requestError: unknown) => {
         if (active) {
           setError(requestError instanceof Error ? requestError.message : 'Snapshot request failed')
-          setTransport('reconnecting')
+          if (!streamConnected) setTransport('reconnecting')
         }
       })
 
     const events = new EventSource('/api/v1/events')
     events.addEventListener('open', () => {
+      streamConnected = true
       if (active) setTransport('streaming')
     })
     events.addEventListener('snapshot', (event) => {
       if (!active || !(event instanceof MessageEvent)) return
-      if (acceptPayload(event.data)) setTransport('streaming')
+      if (acceptPayload(event.data, 'stream')) setTransport('streaming')
     })
     events.addEventListener('error', () => {
       if (active) {
+        streamConnected = false
         setError('Telemetry stream disconnected')
         setTransport('reconnecting')
       }

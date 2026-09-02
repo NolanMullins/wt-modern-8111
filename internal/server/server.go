@@ -11,11 +11,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/NolanMullins/wt-modern-8111/internal/polling"
+	"github.com/NolanMullins/wt-modern-8111/internal/telemetry"
 	"github.com/NolanMullins/wt-modern-8111/internal/webui"
 )
 
-func New(service *polling.Service) (http.Handler, error) {
+type Source interface {
+	Snapshot() telemetry.Snapshot
+	MapImage() ([]byte, string, int, bool)
+}
+
+func New(service Source) (http.Handler, error) {
 	assets, err := webui.FS()
 	if err != nil {
 		return nil, fmt.Errorf("open embedded frontend: %w", err)
@@ -46,7 +51,7 @@ func writeJSON(writer http.ResponseWriter, value any) {
 	}
 }
 
-func streamSnapshots(writer http.ResponseWriter, request *http.Request, service *polling.Service) {
+func streamSnapshots(writer http.ResponseWriter, request *http.Request, service Source) {
 	flusher, ok := writer.(http.Flusher)
 	if !ok {
 		http.Error(writer, "streaming unsupported", http.StatusInternalServerError)
@@ -80,7 +85,7 @@ func streamSnapshots(writer http.ResponseWriter, request *http.Request, service 
 	}
 }
 
-func serveMap(writer http.ResponseWriter, request *http.Request, service *polling.Service) {
+func serveMap(writer http.ResponseWriter, request *http.Request, service Source) {
 	requested, err := strconv.Atoi(request.PathValue("generation"))
 	if err != nil {
 		http.Error(writer, "invalid generation", http.StatusBadRequest)
@@ -112,7 +117,7 @@ func spaHandler(assets fs.FS) http.Handler {
 			}
 			name = "index.html"
 		}
-		if contentType := mime.TypeByExtension(path.Ext(name)); contentType != "" {
+		if contentType := assetContentType(name); contentType != "" {
 			writer.Header().Set("Content-Type", contentType)
 		}
 		if name == "index.html" {
@@ -122,6 +127,26 @@ func spaHandler(assets fs.FS) http.Handler {
 		}
 		_, _ = writer.Write(body)
 	})
+}
+
+var assetContentTypes = map[string]string{
+	".css":   "text/css; charset=utf-8",
+	".html":  "text/html; charset=utf-8",
+	".ico":   "image/x-icon",
+	".js":    "text/javascript; charset=utf-8",
+	".json":  "application/json",
+	".png":   "image/png",
+	".svg":   "image/svg+xml",
+	".webp":  "image/webp",
+	".woff2": "font/woff2",
+}
+
+func assetContentType(name string) string {
+	extension := strings.ToLower(path.Ext(name))
+	if contentType, ok := assetContentTypes[extension]; ok {
+		return contentType
+	}
+	return mime.TypeByExtension(extension)
 }
 
 func securityHeaders(next http.Handler) http.Handler {

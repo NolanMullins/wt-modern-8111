@@ -32,6 +32,19 @@ type MapInfo struct {
 	MapMax       []float64 `json:"map_max,omitempty"`
 }
 
+func (m *MapInfo) UnmarshalJSON(body []byte) error {
+	var raw map[string]any
+	if err := json.Unmarshal(body, &raw); err != nil {
+		return err
+	}
+	value, err := parseMapInfo(raw)
+	if err != nil {
+		return err
+	}
+	*m = value
+	return nil
+}
+
 type MapObject struct {
 	Type       string    `json:"type"`
 	Color      string    `json:"color,omitempty"`
@@ -104,11 +117,8 @@ func (c *Client) MapObjects(ctx context.Context) ([]MapObject, error) {
 }
 
 func (c *Client) MapInfo(ctx context.Context) (MapInfo, error) {
-	var raw map[string]any
-	if err := c.getJSON(ctx, "/map_info.json", &raw); err != nil {
-		return MapInfo{}, err
-	}
-	return parseMapInfo(raw)
+	var value MapInfo
+	return value, c.getJSON(ctx, "/map_info.json", &value)
 }
 
 func (c *Client) Mission(ctx context.Context) (Mission, error) {
