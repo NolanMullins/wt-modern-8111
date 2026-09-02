@@ -9,10 +9,14 @@ import (
 	"image"
 	"image/color"
 	"image/png"
+	"log"
 	"net/http"
+	"sync/atomic"
 	"time"
 
 	"github.com/NolanMullins/wt-modern-8111/internal/autostart"
+	"github.com/NolanMullins/wt-modern-8111/internal/buildinfo"
+	"github.com/NolanMullins/wt-modern-8111/internal/updater"
 	"github.com/gogpu/systray"
 )
 
@@ -34,6 +38,60 @@ func runTray(
 	}
 	menu := systray.NewMenu()
 	menu.Add("Open Dashboard", openDashboard)
+	menu.AddSeparator()
+	versionItem := menu.Add("Version "+buildinfo.Current(), nil)
+	versionItem.SetDisabled(true)
+	var updateItem *systray.MenuItem
+	var updateRunning atomic.Bool
+	checkForUpdates := func(manual bool) {
+		if !updateRunning.CompareAndSwap(false, true) {
+			return
+		}
+		go func() {
+			defer updateRunning.Store(false)
+			updateItem.SetLabel("Checking for Updates...")
+			updateItem.SetDisabled(true)
+			manager, err := updater.New(buildinfo.Current())
+			if err != nil {
+				log.Printf("initialize updater: %v", err)
+				updateItem.SetLabel("Check for Updates")
+				updateItem.SetDisabled(false)
+				return
+			}
+			release, staged, err := manager.CheckAndStage(ctx)
+			if err != nil {
+				log.Printf("check for updates: %v", err)
+				updateItem.SetLabel("Check for Updates")
+				updateItem.SetDisabled(!buildinfo.Release())
+				if manual {
+					tray.ShowNotification("WT Modern 8111", "Update check failed. See the local log for details.")
+				}
+				return
+			}
+			if release == nil {
+				updateItem.SetLabel("Up to Date")
+				if manual {
+					tray.ShowNotification("WT Modern 8111", "You are running the latest version.")
+				}
+				time.Sleep(3 * time.Second)
+				updateItem.SetLabel("Check for Updates")
+				updateItem.SetDisabled(false)
+				return
+			}
+			updateItem.SetLabel("Installing " + release.Version + "...")
+			tray.ShowNotification("WT Modern 8111", "Installing version "+release.Version+" and restarting.")
+			if err := updater.Launch(staged); err != nil {
+				log.Printf("launch update: %v", err)
+				updateItem.SetLabel("Check for Updates")
+				updateItem.SetDisabled(false)
+				tray.ShowNotification("WT Modern 8111", "The update could not be installed.")
+				return
+			}
+			stop()
+		}()
+	}
+	updateItem = menu.Add("Check for Updates", func() { checkForUpdates(true) })
+	updateItem.SetDisabled(!buildinfo.Release())
 	menu.AddSeparator()
 
 	startupEnabled, startupErr := autostart.Enabled()
@@ -63,6 +121,9 @@ func runTray(
 		tray.Remove()
 		return fmt.Errorf("tray icon could not be created")
 	}
+	if buildinfo.Release() {
+		go automaticUpdates(ctx, func() { checkForUpdates(false) })
+	}
 
 	serverResult := make(chan error, 1)
 	go func() {
@@ -86,6 +147,27 @@ func runTray(
 		return err
 	default:
 		return nil
+	}
+}
+
+func automaticUpdates(ctx context.Context, check func()) {
+	initial := time.NewTimer(10 * time.Second)
+	defer initial.Stop()
+	select {
+	case <-ctx.Done():
+		return
+	case <-initial.C:
+		check()
+	}
+	ticker := time.NewTicker(6 * time.Hour)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			check()
+		}
 	}
 }
 

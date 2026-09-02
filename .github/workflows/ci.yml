@@ -43,4 +43,26 @@ jobs:
       - name: Build Windows tray application
         run: |
           GOOS=windows GOARCH=amd64 go vet ./...
-          GOOS=windows GOARCH=amd64 go build -ldflags="-H windowsgui" -o wt-modern.exe ./cmd/wt-modern
+          GOOS=windows GOARCH=amd64 go build -ldflags="-H windowsgui -X github.com/NolanMullins/wt-modern-8111/internal/buildinfo.Version=0.0.0" -o wt-modern.exe ./cmd/wt-modern
+
+  windows-package:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress -y
+
+      - name: Build installer
+        shell: pwsh
+        run: .\scripts\build-installer.ps1 -Version 0.0.0
