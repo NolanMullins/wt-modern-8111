@@ -1,22 +1,33 @@
 import { useEffect, useState } from 'react'
 import type { Snapshot } from '../types'
+import type { PlayerTeam } from './usePlayerTeam'
 
-export type HeatmapStatus = 'idle' | 'loading' | 'ready' | 'unavailable' | 'error'
+export type HeatmapStatus =
+  | 'idle'
+  | 'waiting-team'
+  | 'loading'
+  | 'ready'
+  | 'unavailable'
+  | 'error'
 
 export interface HeatmapState {
   generation?: number
+  enemyTeam?: PlayerTeam
   status: HeatmapStatus
   mapName?: string
-  image?: CanvasImageSource
+  firingImage?: CanvasImageSource
+  victimImage?: CanvasImageSource
   baseImage?: CanvasImageSource
 }
 
 export function useHeatmapImage(
   snapshot: Snapshot | null,
   enabled: boolean,
+  enemyTeam?: PlayerTeam,
 ): HeatmapState {
   const generation = snapshot?.map.imageRevision ?? snapshot?.map.generation
   const canLoad = enabled &&
+    enemyTeam !== undefined &&
     snapshot?.connection.mode === 'live' &&
     snapshot.map.valid &&
     generation !== undefined
@@ -29,52 +40,70 @@ export function useHeatmapImage(
     const controller = new AbortController()
 
     Promise.all([
-      fetch(`/api/v1/heatmap/${generation}`, {
+      fetch(`/api/v1/heatmap/${generation}?team=${enemyTeam}&layer=firing`, {
         cache: 'no-store',
         signal: controller.signal,
       }),
-      fetch(`/api/v1/historical-map/${generation}`, {
+      fetch(`/api/v1/heatmap/${generation}?team=${enemyTeam}&layer=victims`, {
+        cache: 'no-store',
+        signal: controller.signal,
+      }),
+      fetch(`/api/v1/historical-map/${generation}?team=${enemyTeam}`, {
         cache: 'no-store',
         signal: controller.signal,
       }),
     ])
-      .then(async ([heatResponse, mapResponse]) => {
-        if (heatResponse.status === 404 || mapResponse.status === 404) {
-          if (!cancelled) setState({ generation, status: 'unavailable' })
+      .then(async ([firingResponse, victimResponse, mapResponse]) => {
+        if ([firingResponse, victimResponse, mapResponse].some((response) =>
+          response.status === 404
+        )) {
+          if (!cancelled) setState({ generation, enemyTeam, status: 'unavailable' })
           return
         }
-        if (!heatResponse.ok) throw new Error(`heatmap HTTP ${heatResponse.status}`)
+        if (!firingResponse.ok) {
+          throw new Error(`firing heatmap HTTP ${firingResponse.status}`)
+        }
+        if (!victimResponse.ok) {
+          throw new Error(`victim heatmap HTTP ${victimResponse.status}`)
+        }
         if (!mapResponse.ok) throw new Error(`historical map HTTP ${mapResponse.status}`)
-        const [heatBlob, mapBlob] = await Promise.all([
-          heatResponse.blob(),
+        const [firingBlob, victimBlob, mapBlob] = await Promise.all([
+          firingResponse.blob(),
+          victimResponse.blob(),
           mapResponse.blob(),
         ])
         if (cancelled) return
-        const [heatImage, decodedBase] = await Promise.all([
-          createImageBitmap(heatBlob),
+        const [firingSource, victimSource, decodedBase] = await Promise.all([
+          createImageBitmap(firingBlob),
+          createImageBitmap(victimBlob),
           createImageBitmap(mapBlob),
         ])
         baseImage = decodedBase
         if (cancelled) {
-          heatImage.close()
+          firingSource.close()
+          victimSource.close()
           baseImage.close()
           return
         }
-        const gradient = buildHeatmapGradient(heatImage)
-        heatImage.close()
+        const firingImage = buildPreciseLayer(firingSource)
+        const victimImage = buildPreciseLayer(victimSource)
+        firingSource.close()
+        victimSource.close()
         if (!cancelled) {
           setState({
             generation,
+            enemyTeam,
             status: 'ready',
-            mapName: heatResponse.headers.get('X-WT-Heatmap-Map') ?? undefined,
-            image: gradient,
+            mapName: firingResponse.headers.get('X-WT-Heatmap-Map') ?? undefined,
+            firingImage,
+            victimImage,
             baseImage,
           })
         }
       })
       .catch((error: unknown) => {
         if (!cancelled && !(error instanceof DOMException && error.name === 'AbortError')) {
-          setState({ generation, status: 'error' })
+          setState({ generation, enemyTeam, status: 'error' })
         }
       })
 
@@ -82,16 +111,24 @@ export function useHeatmapImage(
       cancelled = true
       controller.abort()
       baseImage?.close()
+      setState((current) =>
+        current.generation === generation && current.enemyTeam === enemyTeam
+          ? { status: 'idle' }
+          : current
+      )
     }
-  }, [canLoad, generation])
+  }, [canLoad, enemyTeam, generation])
 
   if (!enabled) return { status: 'idle' }
+  if (enemyTeam === undefined) return { status: 'waiting-team' }
   if (!canLoad) return { status: 'unavailable' }
-  if (state.generation !== generation) return { generation, status: 'loading' }
+  if (state.generation !== generation || state.enemyTeam !== enemyTeam) {
+    return { generation, enemyTeam, status: 'loading' }
+  }
   return state
 }
 
-function buildHeatmapGradient(image: ImageBitmap): HTMLCanvasElement {
+function buildPreciseLayer(image: ImageBitmap): HTMLCanvasElement {
   const maxSize = 1024
   const scale = Math.min(1, maxSize / Math.max(image.width, image.height))
   const width = Math.max(1, Math.round(image.width * scale))
@@ -102,7 +139,7 @@ function buildHeatmapGradient(image: ImageBitmap): HTMLCanvasElement {
   const compressedContext = compressed.getContext('2d')
   if (!compressedContext) return compressed
   compressedContext.globalCompositeOperation = 'screen'
-  for (let pass = 0; pass < 8; pass += 1) {
+  for (let pass = 0; pass < 4; pass += 1) {
     compressedContext.drawImage(image, 0, 0, width, height)
   }
 
@@ -111,10 +148,10 @@ function buildHeatmapGradient(image: ImageBitmap): HTMLCanvasElement {
   gradient.height = height
   const gradientContext = gradient.getContext('2d')
   if (!gradientContext) return compressed
-  gradientContext.filter = 'blur(9px) saturate(170%) contrast(125%)'
+  gradientContext.filter = 'blur(1px) saturate(135%) contrast(115%)'
   gradientContext.drawImage(compressed, 0, 0)
   gradientContext.filter = 'none'
-  gradientContext.globalAlpha = 0.5
+  gradientContext.globalAlpha = 0.75
   gradientContext.drawImage(compressed, 0, 0)
   return gradient
 }

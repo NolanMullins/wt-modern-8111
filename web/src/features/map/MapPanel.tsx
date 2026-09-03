@@ -11,6 +11,8 @@ export function MapPanel({
   snapshot,
   battleMode,
   heatmap,
+  showEnemyFiring,
+  showFriendlyLosses,
   navigation,
   selectedTarget,
   onSelectTarget,
@@ -19,6 +21,8 @@ export function MapPanel({
   snapshot: Snapshot | null
   battleMode: BattleMode
   heatmap: HeatmapState
+  showEnemyFiring: boolean
+  showFriendlyLosses: boolean
   navigation?: NavigationSolution
   selectedTarget: SelectedTarget | null
   onSelectTarget: (target: SelectedTarget) => void
@@ -34,7 +38,12 @@ export function MapPanel({
         navigation={navigation}
         selectedTarget={selectedTarget}
         onSelectTarget={onSelectTarget}
-        heatmapImage={heatmap.status === 'ready' ? heatmap.image : undefined}
+        heatmapImages={heatmap.status === 'ready'
+          ? [
+              showFriendlyLosses ? heatmap.victimImage : undefined,
+              showEnemyFiring ? heatmap.firingImage : undefined,
+            ].filter((image): image is CanvasImageSource => image !== undefined)
+          : undefined}
         mapImageOverride={heatmap.status === 'ready' ? heatmap.baseImage : undefined}
         groundMap={groundMode}
       />
@@ -60,8 +69,12 @@ export function MapPanel({
               <Legend color="#f00c00" label={`${counts?.hostileAir ?? 0} air contacts`} shape="air" />
               {heatmap.status === 'ready' && (
                 <>
-                  <Legend color="#ff3028" label="kill-heavy positions" shape="heat" />
-                  <Legend color="#365cff" label="death-heavy positions" shape="heat" />
+                  {showEnemyFiring && (
+                    <Legend color="#ff4e00" label="enemy firing positions" shape="heat" />
+                  )}
+                  {showFriendlyLosses && (
+                    <Legend color="#00a6ff" label="friendly loss positions" shape="heat" />
+                  )}
                 </>
               )}
             </div>

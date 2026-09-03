@@ -10,7 +10,7 @@ interface MapFrame {
   width: number
   height: number
   image: CanvasImageSource | null
-  heatmapImage?: CanvasImageSource
+  heatmapImages?: CanvasImageSource[]
   snapshot: Snapshot | null
   navigation?: NavigationSolution
   camera: MapCamera
@@ -18,7 +18,7 @@ interface MapFrame {
 
 export function drawMapFrame(
   context: CanvasRenderingContext2D,
-  { width, height, image, heatmapImage, snapshot, navigation, camera }: MapFrame,
+  { width, height, image, heatmapImages, snapshot, navigation, camera }: MapFrame,
 ) {
   const viewport = squareRect(width, height)
   const rect = mapRectForCamera(viewport, camera)
@@ -30,7 +30,7 @@ export function drawMapFrame(
   context.rect(viewport.x, viewport.y, viewport.size, viewport.size)
   context.clip()
   drawBackground(context, rect, image)
-  drawHeatmap(context, rect, heatmapImage)
+  drawHeatmaps(context, rect, heatmapImages)
   if (snapshot) {
     drawGrid(context, viewport, rect, snapshot)
     drawObjectLayer(
@@ -44,15 +44,17 @@ export function drawMapFrame(
     drawAllyMarkOverlay(context, rect, snapshot)
   }
 
-  function drawHeatmap(
+  function drawHeatmaps(
     context: CanvasRenderingContext2D,
     rect: MapRect,
-    image: CanvasImageSource | undefined,
+    images: CanvasImageSource[] | undefined,
   ) {
-    if (!image) return
+    if (!images?.length) return
     context.save()
-    context.globalAlpha = 0.9
-    context.drawImage(image, rect.x, rect.y, rect.size, rect.size)
+    context.globalAlpha = 0.88
+    for (const image of images) {
+      context.drawImage(image, rect.x, rect.y, rect.size, rect.size)
+    }
     context.restore()
   }
   context.restore()

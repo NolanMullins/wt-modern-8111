@@ -35,6 +35,7 @@ type Service struct {
 	mapGeneration    int
 	mapRevision      int
 	mapEpoch         uint64
+	sessionActive    bool
 	heatmapImage     []byte
 	heatmapImageType string
 	groundMapInfo    warthunder.MapInfo
@@ -256,8 +257,17 @@ func (s *Service) pollMapInfo(ctx context.Context) {
 	} else {
 		s.mu.Lock()
 		previousGeneration := s.raw.MapInfo.Generation
-		if value.Generation != previousGeneration {
+		sessionEnded := s.sessionActive &&
+			!value.Valid &&
+			!boolValue(s.raw.Indicators["valid"]) &&
+			!strings.EqualFold(s.raw.Mission.Status, "running")
+		if sessionEnded {
+			s.resetGameSessionLocked()
+		} else if value.Generation != previousGeneration {
 			s.resetMapSessionLocked()
+		}
+		if value.Valid {
+			s.sessionActive = true
 		}
 		s.raw.MapInfo = value
 		s.recordSuccessLocked("mapInfo")

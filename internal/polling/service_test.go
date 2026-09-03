@@ -321,6 +321,72 @@ func TestMapGenerationResetRetainsGroundHeatmapImageForCAS(t *testing.T) {
 	}
 }
 
+func TestEndedSessionClearsRetainedGroundMap(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		if request.URL.Path != "/map_info.json" {
+			http.NotFound(writer, request)
+			return
+		}
+		writer.Header().Set("Content-Type", "application/json")
+		_, _ = fmt.Fprint(writer, `{"valid":false,"map_generation":0}`)
+	}))
+	defer server.Close()
+	service := NewService(warthunder.NewClient(server.URL, time.Second))
+	service.sessionActive = true
+	service.raw.Indicators = map[string]any{"valid": false, "army": "air"}
+	service.raw.Mission.Status = "ended"
+	service.raw.MapInfo = warthunder.MapInfo{Valid: true, Generation: 7}
+	service.heatmapImage = []byte("old-ground")
+	service.groundMapInfo = warthunder.MapInfo{
+		Valid:  true,
+		MapMin: []float64{0, 0},
+		MapMax: []float64{1000, 1000},
+	}
+
+	service.pollMapInfo(context.Background())
+
+	if _, _, _, ok := service.GroundMapImage(); ok {
+		t.Fatal("ended session retained the old ground map")
+	}
+	if service.groundMapInfo.Valid || service.sessionActive {
+		t.Fatalf(
+			"ended session state retained: ground=%+v active=%t",
+			service.groundMapInfo,
+			service.sessionActive,
+		)
+	}
+}
+
+func TestRunningMissionRetainsGroundMapAcrossInvalidCASFrame(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		if request.URL.Path != "/map_info.json" {
+			http.NotFound(writer, request)
+			return
+		}
+		writer.Header().Set("Content-Type", "application/json")
+		_, _ = fmt.Fprint(writer, `{"valid":false,"map_generation":0}`)
+	}))
+	defer server.Close()
+	service := NewService(warthunder.NewClient(server.URL, time.Second))
+	service.sessionActive = true
+	service.raw.Indicators = map[string]any{"valid": false, "army": "air"}
+	service.raw.Mission.Status = "running"
+	service.raw.MapInfo = warthunder.MapInfo{Valid: true, Generation: 7}
+	service.heatmapImage = []byte("ground")
+	service.groundMapInfo = warthunder.MapInfo{
+		Valid:  true,
+		MapMin: []float64{0, 0},
+		MapMax: []float64{1000, 1000},
+	}
+
+	service.pollMapInfo(context.Background())
+
+	image, _, _, ok := service.GroundMapImage()
+	if !ok || string(image) != "ground" || !service.groundMapInfo.Valid {
+		t.Fatalf("running mission lost retained ground map: %q available=%t", image, ok)
+	}
+}
+
 func TestRTBActivatesOnLiveHeadingToBasePreset(t *testing.T) {
 	service := newTestService()
 	// The preset War Thunder actually emits is "Heading to the base."

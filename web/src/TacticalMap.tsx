@@ -30,7 +30,7 @@ interface TacticalMapProps {
   navigation?: NavigationSolution
   selectedTarget: SelectedTarget | null
   onSelectTarget: (target: SelectedTarget) => void
-  heatmapImage?: CanvasImageSource
+  heatmapImages?: CanvasImageSource[]
   mapImageOverride?: CanvasImageSource
   groundMap: boolean
 }
@@ -47,7 +47,7 @@ export function TacticalMap({
   navigation,
   selectedTarget,
   onSelectTarget,
-  heatmapImage,
+  heatmapImages,
   mapImageOverride,
   groundMap,
 }: TacticalMapProps) {
@@ -117,7 +117,7 @@ export function TacticalMap({
         width,
         height,
         image: mapImageOverride ?? currentImage,
-        heatmapImage,
+        heatmapImages,
         snapshot,
         navigation,
         camera: cameraRef.current,
@@ -147,7 +147,7 @@ export function TacticalMap({
       resize.disconnect()
       if (redrawTimer !== undefined) window.clearInterval(redrawTimer)
     }
-  }, [heatmapImage, mapImage, mapImageOverride, navigation, snapshot])
+  }, [heatmapImages, mapImage, mapImageOverride, navigation, snapshot])
 
   const selectTargetAt = (client: Point) => {
     if (!snapshot?.map.valid) return

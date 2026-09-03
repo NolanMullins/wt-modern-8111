@@ -23,8 +23,10 @@ serves a map-first interface on the same PC.
 - Mission, chat, HUD-event, and damage feed
 - Automatic Ground Realistic context with tank telemetry, CAS-aware flight
   instrumentation, capture-zone navigation, and ground symbology
-- Opt-in historical Ground Realistic heatmap overlay, automatically matched to
-  the current map and rendered from community data at
+- Opt-in, side-aware Ground Realistic heatmap overlay with confidence-filtered
+  enemy firing and friendly loss layers, automatic team detection, and a manual team
+  override. Historical data is automatically matched to the current map and rendered from
+  community data at
   [War Thunder Heatmaps](https://thunder.nanachi.party/about)
 - Captured fixture mode for offline development
 

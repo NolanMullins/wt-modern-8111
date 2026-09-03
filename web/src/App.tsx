@@ -12,6 +12,7 @@ import { NavigationPanel } from './features/navigation/NavigationPanel'
 import { useSelectedNavigation } from './features/navigation/useSelectedNavigation'
 import { SystemsPanel } from './features/systems/SystemsPanel'
 import { useHeatmapImage } from './map/useHeatmapImage'
+import { usePlayerTeam } from './map/usePlayerTeam'
 import { useFuelEstimate } from './useFuelEstimate'
 import { useTelemetry } from './useTelemetry'
 
@@ -21,7 +22,17 @@ function App() {
   const battleMode = useBattleMode(snapshot)
   const vehicleMode = vehicleModeForSnapshot(snapshot)
   const [heatmapEnabled, setHeatmapEnabled] = useState(false)
-  const heatmap = useHeatmapImage(snapshot, battleMode === 'ground' && heatmapEnabled)
+  const [showEnemyFiring, setShowEnemyFiring] = useState(true)
+  const [showFriendlyLosses, setShowFriendlyLosses] = useState(true)
+  const playerTeam = usePlayerTeam(
+    battleMode === 'ground',
+    snapshot?.map.imageRevision ?? snapshot?.map.generation,
+  )
+  const heatmap = useHeatmapImage(
+    snapshot,
+    battleMode === 'ground' && heatmapEnabled,
+    playerTeam.enemyTeam,
+  )
   const {
     navigation,
     selectedTarget,
@@ -56,6 +67,8 @@ function App() {
           snapshot={snapshot}
           battleMode={battleMode}
           heatmap={heatmap}
+          showEnemyFiring={showEnemyFiring}
+          showFriendlyLosses={showFriendlyLosses}
           navigation={navigation}
           selectedTarget={selectedTarget}
           onSelectTarget={selectTarget}
@@ -66,7 +79,12 @@ function App() {
               <GroundHeatmapPanel
                 enabled={heatmapEnabled}
                 heatmap={heatmap}
+                playerTeam={playerTeam}
+                showEnemyFiring={showEnemyFiring}
+                showFriendlyLosses={showFriendlyLosses}
                 onToggle={() => setHeatmapEnabled((enabled) => !enabled)}
+                onShowEnemyFiring={setShowEnemyFiring}
+                onShowFriendlyLosses={setShowFriendlyLosses}
               />
             )
           : <MissionPanel snapshot={snapshot} onSelectTarget={selectTarget} />}

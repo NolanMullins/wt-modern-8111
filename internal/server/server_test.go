@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io/fs"
 	"net/http"
 	"net/http/httptest"
@@ -13,6 +14,7 @@ import (
 	"time"
 
 	"github.com/NolanMullins/wt-modern-8111/internal/heatmap"
+	"github.com/NolanMullins/wt-modern-8111/internal/playerteam"
 	"github.com/NolanMullins/wt-modern-8111/internal/polling"
 	"github.com/NolanMullins/wt-modern-8111/internal/telemetry"
 )
@@ -37,7 +39,14 @@ func (source noGroundSource) GroundMapImage() ([]byte, string, int, bool) {
 	return nil, "", 0, false
 }
 
-func (source fakeHeatmapSource) Fetch(context.Context, []byte) (heatmap.Result, error) {
+func (source fakeHeatmapSource) Fetch(
+	_ context.Context,
+	_ []byte,
+	killerTeam int,
+) (heatmap.Result, error) {
+	if killerTeam != 1 && killerTeam != 2 {
+		return heatmap.Result{}, errors.New("invalid team")
+	}
 	return source.result, source.err
 }
 
@@ -181,15 +190,20 @@ func TestMapEndpointContract(t *testing.T) {
 func TestHeatmapEndpointContract(t *testing.T) {
 	source := &fakeSource{image: []byte("map"), mime: "image/jpeg", gen: 2}
 	provider := fakeHeatmapSource{result: heatmap.Result{
-		Map:     heatmap.Map{Level: "levels/avg_abandoned_town.bin", Name: "Abandoned Town"},
-		PNG:     []byte("\x89PNG\r\n\x1a\nheat"),
-		BasePNG: []byte("\x89PNG\r\n\x1a\nbase"),
+		Map:       heatmap.Map{Level: "levels/avg_abandoned_town.bin", Name: "Abandoned Town"},
+		FiringPNG: []byte("\x89PNG\r\n\x1a\nfiring"),
+		VictimPNG: []byte("\x89PNG\r\n\x1a\nvictims"),
+		BasePNG:   []byte("\x89PNG\r\n\x1a\nbase"),
 	}}
 	handler, err := newWithHeatmaps(source, provider)
 	if err != nil {
 		t.Fatal(err)
 	}
-	request := httptest.NewRequest(http.MethodGet, "/api/v1/heatmap/2", nil)
+	request := httptest.NewRequest(
+		http.MethodGet,
+		"/api/v1/heatmap/2?team=2&layer=firing",
+		nil,
+	)
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
 
@@ -201,6 +215,13 @@ func TestHeatmapEndpointContract(t *testing.T) {
 	}
 	if response.Header().Get("X-WT-Heatmap-Map") != "Abandoned Town" {
 		t.Fatalf("map name = %q", response.Header().Get("X-WT-Heatmap-Map"))
+	}
+	if response.Header().Get("X-WT-Heatmap-Team") != "2" ||
+		response.Header().Get("X-WT-Heatmap-Layer") != "firing" {
+		t.Fatalf("heatmap headers = %v", response.Header())
+	}
+	if !strings.Contains(response.Body.String(), "firing") {
+		t.Fatalf("unexpected firing body %q", response.Body.String())
 	}
 }
 
@@ -226,7 +247,11 @@ func TestHeatmapRequiresGroundReference(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	request := httptest.NewRequest(http.MethodGet, "/api/v1/heatmap/3", nil)
+	request := httptest.NewRequest(
+		http.MethodGet,
+		"/api/v1/heatmap/3?team=1&layer=firing",
+		nil,
+	)
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
 	if response.Code != http.StatusNotFound {
@@ -257,11 +282,41 @@ func TestHeatmapEndpointReportsUnavailableData(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	request := httptest.NewRequest(http.MethodGet, "/api/v1/heatmap/2", nil)
+	request := httptest.NewRequest(
+		http.MethodGet,
+		"/api/v1/heatmap/2?team=1&layer=victims",
+		nil,
+	)
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
 	if response.Code != http.StatusNotFound {
 		t.Fatalf("status = %d, want 404", response.Code)
+	}
+}
+
+func TestPlayerTeamEndpoint(t *testing.T) {
+	handler, err := newWithSources(
+		&fakeSource{},
+		fakeHeatmapSource{},
+		staticTeamSource{result: playerteam.Result{
+			Team:   2,
+			Status: "detected",
+			Source: "game-log",
+		}},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/player-team", nil)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+
+	var result playerteam.Result
+	if err := json.NewDecoder(response.Body).Decode(&result); err != nil {
+		t.Fatal(err)
+	}
+	if response.Code != http.StatusOK || result.Team != 2 || result.Status != "detected" {
+		t.Fatalf("response = %d %+v", response.Code, result)
 	}
 }
 

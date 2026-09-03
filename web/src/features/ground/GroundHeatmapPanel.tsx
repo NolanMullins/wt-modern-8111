@@ -1,14 +1,25 @@
 import { PanelHead } from '../../shared/presentation'
 import type { HeatmapState } from '../../map/useHeatmapImage'
+import type { TeamPreference, usePlayerTeam } from '../../map/usePlayerTeam'
 
 export function GroundHeatmapPanel({
   enabled,
   heatmap,
+  playerTeam,
+  showEnemyFiring,
+  showFriendlyLosses,
   onToggle,
+  onShowEnemyFiring,
+  onShowFriendlyLosses,
 }: {
   enabled: boolean
   heatmap: HeatmapState
+  playerTeam: ReturnType<typeof usePlayerTeam>
+  showEnemyFiring: boolean
+  showFriendlyLosses: boolean
   onToggle: () => void
+  onShowEnemyFiring: (shown: boolean) => void
+  onShowFriendlyLosses: (shown: boolean) => void
 }) {
   return (
     <section className="panel mission-panel ground-heatmap-panel">
@@ -22,16 +33,52 @@ export function GroundHeatmapPanel({
           <small>Ground Realistic battles</small>
           <strong>{heatmap.mapName ?? 'Community combat history'}</strong>
           <p>
-            Red highlights positions where players secure more kills. Blue highlights
-            positions where players die more often. Brighter areas have more samples.
-            Ground RB always uses the tank-map view so the historical layer stays aligned,
-            including while flying CAS.
+            Orange marks confirmed firing positions for the historical enemy team.
+            Blue marks where that team killed players on your side. A cell is shown only
+            when at least five exact replay events support it. Broad interpolation is
+            disabled.
           </p>
         </div>
-        <div className="heatmap-scale" aria-label="Historical heatmap color key">
-          <span className="heatmap-death">Death-heavy</span>
-          <span>Balanced</span>
-          <span className="heatmap-kill">Kill-heavy</span>
+        <label className="heatmap-team-control">
+          <span>Your replay side</span>
+          <select
+            value={playerTeam.preference}
+            onChange={(event) =>
+              playerTeam.setPreference(event.currentTarget.value as TeamPreference)}
+          >
+            <option value="auto">
+              {playerTeam.detection.status === 'detected'
+                ? `Automatic (Team ${playerTeam.detection.team})`
+                : 'Automatic detection'}
+            </option>
+            <option value="1">Team 1 override</option>
+            <option value="2">Team 2 override</option>
+          </select>
+          <small>
+            {playerTeam.preference === 'auto'
+              ? playerTeam.detection.detail
+              : `Manual override active: you are Team ${playerTeam.selectedTeam}`}
+          </small>
+        </label>
+        <div className="heatmap-layer-controls" aria-label="Historical heatmap layers">
+          <label>
+            <input
+              type="checkbox"
+              checked={showEnemyFiring}
+              onChange={(event) => onShowEnemyFiring(event.currentTarget.checked)}
+            />
+            <i className="heatmap-firing-swatch" />
+            Enemy firing positions
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={showFriendlyLosses}
+              onChange={(event) => onShowFriendlyLosses(event.currentTarget.checked)}
+            />
+            <i className="heatmap-victim-swatch" />
+            Your team killed here
+          </label>
         </div>
         <button
           className="heatmap-panel-toggle"
@@ -55,6 +102,7 @@ export function GroundHeatmapPanel({
 
 function heatmapStatus(enabled: boolean, heatmap: HeatmapState) {
   if (!enabled) return 'Off'
+  if (heatmap.status === 'waiting-team') return 'Select team'
   if (heatmap.status === 'loading') return 'Loading'
   if (heatmap.status === 'ready') return 'Overlay active'
   if (heatmap.status === 'unavailable') return 'No map data'

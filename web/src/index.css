@@ -713,21 +713,76 @@ body {
   line-height: 1.45;
 }
 
-.heatmap-scale {
+.heatmap-team-control {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  border: 1px solid var(--line);
-  background: linear-gradient(90deg, #365cff, #121820 50%, #ff3028);
+  gap: 5px;
 }
 
-.heatmap-scale span {
-  padding: 8px 4px;
-  color: #fff;
-  font-size: 8px;
-  font-weight: 850;
-  text-align: center;
-  text-shadow: 0 1px 3px #000;
+.heatmap-team-control > span {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
+}
+
+.heatmap-team-control select {
+  width: 100%;
+  border: 1px solid var(--line);
+  padding: 8px;
+  background: var(--surface-2);
+  color: var(--text);
+  font: 750 10px Inter, sans-serif;
+}
+
+.heatmap-team-control small {
+  min-height: 2.5em;
+  color: var(--faint);
+  font-size: 9px;
+  line-height: 1.25;
+}
+
+.heatmap-layer-controls {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.heatmap-layer-controls label {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--line);
+  padding: 7px;
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 800;
+  line-height: 1.2;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.heatmap-layer-controls input {
+  margin: 0;
+  accent-color: var(--amber);
+}
+
+.heatmap-layer-controls i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.heatmap-firing-swatch {
+  background: #ff4e00;
+  box-shadow: 0 0 7px #ff4e00;
+}
+
+.heatmap-victim-swatch {
+  background: #00a6ff;
+  box-shadow: 0 0 7px #00a6ff;
 }
 
 .heatmap-panel-toggle {

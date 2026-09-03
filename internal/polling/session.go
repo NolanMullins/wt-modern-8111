@@ -37,6 +37,7 @@ func (s *Service) invalidateMapImageLocked() {
 
 func (s *Service) resetGameSessionLocked() {
 	s.resetMapSessionLocked()
+	s.sessionActive = false
 	s.mapRevision = 0
 	s.heatmapImage = nil
 	s.heatmapImageType = ""
