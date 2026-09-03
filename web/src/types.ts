@@ -45,6 +45,23 @@ export interface Snapshot {
     aoaDeg?: number
     gLoad?: number
   }
+  ground?: {
+    speedKmh?: number
+    headingDeg?: number
+    engineRpm?: number
+    gear?: number
+    cruiseControl?: number
+    ammo?: number
+    crewCurrent?: number
+    crewTotal?: number
+    driverState?: number
+    gunnerState?: number
+    stabilizer?: number
+    lws?: number
+    ircm?: number
+    engineBroken?: number
+    speedWarning?: number
+  }
   systems: {
     status: string
     severity: 'good' | 'caution' | 'critical' | 'unknown'
@@ -84,6 +101,8 @@ export interface Snapshot {
   map: {
     valid: boolean
     generation?: number
+    imageRevision?: number
+    hudType?: number
     gridSize?: number[]
     gridSteps?: number[]
     gridZero?: number[]
@@ -94,7 +113,11 @@ export interface Snapshot {
       total: number
       hostileAir: number
       ground: number
+      friendlyGround?: number
+      hostileGround?: number
       airDefense: number
+      captureZone?: number
+      groundSpawn?: number
       strikePoint: number
       airfield: number
     }

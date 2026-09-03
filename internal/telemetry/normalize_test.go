@@ -84,6 +84,9 @@ func TestBuildSnapshotNormalizesFixtureWithoutAutomaticNavigation(t *testing.T) 
 	if snapshot.Vehicle.Type != "jh_7" {
 		t.Fatalf("vehicle type = %q, want jh_7", snapshot.Vehicle.Type)
 	}
+	if snapshot.Ground.SpeedKMH != nil {
+		t.Fatalf("air snapshot ground speed = %v, want nil", snapshot.Ground.SpeedKMH)
+	}
 	if len(snapshot.Systems.Engines) != 2 {
 		t.Fatalf("engine count = %d, want 2", len(snapshot.Systems.Engines))
 	}
@@ -92,6 +95,86 @@ func TestBuildSnapshotNormalizesFixtureWithoutAutomaticNavigation(t *testing.T) 
 	}
 	if snapshot.Navigation != nil {
 		t.Fatalf("navigation = %#v, want explicit user selection", snapshot.Navigation)
+	}
+}
+
+func TestBuildSnapshotNormalizesGroundVehicleTelemetryAndMapCounts(t *testing.T) {
+	playerX, playerY := 0.25, 0.75
+	friendlyX, friendlyY := 0.3, 0.7
+	hostileX, hostileY := 0.7, 0.3
+	zoneX, zoneY := 0.5, 0.5
+	spawnX, spawnY := 0.1, 0.9
+	raw := RawData{
+		State: map[string]any{"valid": true},
+		Indicators: map[string]any{
+			"valid":            true,
+			"army":             "ground",
+			"type":             "tankModels/ussr_t_80u",
+			"speed":            10.0,
+			"compass":          91.5,
+			"rpm":              1900.0,
+			"gear":             4.0,
+			"cruise_control":   0.0,
+			"first_stage_ammo": 23.0,
+			"crew_current":     3.0,
+			"crew_total":       3.0,
+			"driver_state":     0.0,
+			"gunner_state":     0.0,
+			"stabilizer":       1.0,
+			"lws":              -1.0,
+			"ircm":             1.0,
+		},
+		MapInfo: warthunder.MapInfo{Valid: true, HUDType: 1},
+		MapObjects: []warthunder.MapObject{
+			{Type: "ground_model", Icon: "Player", X: &playerX, Y: &playerY},
+			{Type: "ground_model", Color: "#174DFF", X: &friendlyX, Y: &friendlyY},
+			{Type: "ground_model", Color: "#fa0C00", X: &hostileX, Y: &hostileY},
+			{Type: "capture_zone", X: &zoneX, Y: &zoneY},
+			{Type: "respawn_base_tank", X: &spawnX, Y: &spawnY},
+		},
+		ReturnToAirfield: true,
+	}
+	sources := map[string]SourceStatus{
+		"state":      {State: "fresh"},
+		"indicators": {State: "fresh"},
+		"mapInfo":    {State: "fresh"},
+		"mapObjects": {State: "fresh"},
+	}
+
+	snapshot := BuildSnapshot(1, time.Now(), "live", raw, sources)
+
+	if snapshot.Ground.SpeedKMH == nil || math.Abs(*snapshot.Ground.SpeedKMH-10) > 0.001 {
+		t.Fatalf("ground speed = %v, want 10 km/h", snapshot.Ground.SpeedKMH)
+	}
+	if snapshot.Ground.HeadingDeg == nil || *snapshot.Ground.HeadingDeg != 91.5 {
+		t.Fatalf("ground heading = %v, want 91.5", snapshot.Ground.HeadingDeg)
+	}
+	if snapshot.Ground.Ammo == nil || *snapshot.Ground.Ammo != 23 {
+		t.Fatalf("ground ammo = %v, want 23", snapshot.Ground.Ammo)
+	}
+	if snapshot.Ground.CrewCurrent == nil || *snapshot.Ground.CrewCurrent != 3 ||
+		snapshot.Ground.CrewTotal == nil || *snapshot.Ground.CrewTotal != 3 {
+		t.Fatalf("ground crew = %v/%v, want 3/3", snapshot.Ground.CrewCurrent, snapshot.Ground.CrewTotal)
+	}
+	if snapshot.Ground.LWS != nil {
+		t.Fatalf("negative LWS sentinel normalized as %v", snapshot.Ground.LWS)
+	}
+	if snapshot.Map.HUDType != 1 {
+		t.Fatalf("map HUD type = %d, want 1", snapshot.Map.HUDType)
+	}
+	unavailableAmmo := buildGround(
+		Vehicle{Class: "ground"},
+		RawData{Indicators: map[string]any{"first_stage_ammo": -1.0}},
+	)
+	if unavailableAmmo.Ammo != nil {
+		t.Fatalf("negative ammo sentinel normalized as %v", unavailableAmmo.Ammo)
+	}
+	if snapshot.Map.Counts.FriendlyGround != 1 || snapshot.Map.Counts.HostileGround != 1 ||
+		snapshot.Map.Counts.CaptureZone != 1 || snapshot.Map.Counts.GroundSpawn != 1 {
+		t.Fatalf("ground map counts = %#v", snapshot.Map.Counts)
+	}
+	if snapshot.Navigation != nil {
+		t.Fatalf("ground snapshot selected air RTB navigation: %#v", snapshot.Navigation)
 	}
 }
 
@@ -110,6 +193,22 @@ func TestBuildSnapshotMarksCriticalSourceFailureDegraded(t *testing.T) {
 	snapshot := BuildSnapshot(1, now, "live", raw, sources)
 	if snapshot.Connection.State != "degraded" {
 		t.Fatalf("connection state = %q, want degraded", snapshot.Connection.State)
+	}
+}
+
+func TestMapColorAffiliationHandlesLiveGroundColors(t *testing.T) {
+	for _, color := range []string{"#174DFF", "#043FFF", "#67D756"} {
+		if !friendlyMapColor(color) {
+			t.Errorf("friendlyMapColor(%q) = false", color)
+		}
+	}
+	for _, color := range []string{"#fa0C00", "#fb655C"} {
+		if !hostileMapColor(color) {
+			t.Errorf("hostileMapColor(%q) = false", color)
+		}
+	}
+	if hostileMapColor("#faC81E") {
+		t.Error("player yellow classified as hostile")
 	}
 }
 

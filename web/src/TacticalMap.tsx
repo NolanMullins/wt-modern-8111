@@ -30,6 +30,9 @@ interface TacticalMapProps {
   navigation?: NavigationSolution
   selectedTarget: SelectedTarget | null
   onSelectTarget: (target: SelectedTarget) => void
+  heatmapImages?: CanvasImageSource[]
+  mapImageOverride?: CanvasImageSource
+  groundMap: boolean
 }
 
 interface DragState {
@@ -44,6 +47,9 @@ export function TacticalMap({
   navigation,
   selectedTarget,
   onSelectTarget,
+  heatmapImages,
+  mapImageOverride,
+  groundMap,
 }: TacticalMapProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const targetPickerRef = useRef<HTMLSelectElement>(null)
@@ -52,7 +58,7 @@ export function TacticalMap({
   const drawRef = useRef<() => void>(() => {})
   const drawFrameRef = useRef<number | undefined>(undefined)
   const [dragging, setDragging] = useState(false)
-  const mapImage = useMapImage(snapshot)
+  const mapImage = useMapImage(snapshot, groundMap)
   const keyboardTargets = useMemo(() => (snapshot?.map.objects ?? [])
     .map((object, index) => ({
       index,
@@ -73,7 +79,7 @@ export function TacticalMap({
   useEffect(() => {
     cameraRef.current = defaultMapCamera
     requestMapDraw()
-  }, [snapshot?.map.generation])
+  }, [snapshot?.map.generation, snapshot?.map.imageRevision])
 
   useEffect(() => () => {
     if (drawFrameRef.current !== undefined) {
@@ -105,11 +111,13 @@ export function TacticalMap({
         canvas.height = height
       }
 
-      const currentImage = mapImage && mapImage.generation === snapshot?.map.generation ? mapImage.image : null
+      const revision = snapshot?.map.imageRevision ?? snapshot?.map.generation
+      const currentImage = mapImage && mapImage.revision === revision ? mapImage.image : null
       drawMapFrame(context, {
         width,
         height,
-        image: currentImage,
+        image: mapImageOverride ?? currentImage,
+        heatmapImages,
         snapshot,
         navigation,
         camera: cameraRef.current,
@@ -139,7 +147,7 @@ export function TacticalMap({
       resize.disconnect()
       if (redrawTimer !== undefined) window.clearInterval(redrawTimer)
     }
-  }, [mapImage, navigation, snapshot])
+  }, [heatmapImages, mapImage, mapImageOverride, navigation, snapshot])
 
   const selectTargetAt = (client: Point) => {
     if (!snapshot?.map.valid) return

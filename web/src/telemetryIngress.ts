@@ -38,6 +38,7 @@ function isSnapshot(value: unknown): value is Snapshot {
   const mission = value.mission
   const map = value.map
   const pilot = value.pilot
+  const ground = value.ground
   return value.version === 1 &&
     isFiniteNumber(value.sequence) &&
     value.sequence >= 0 &&
@@ -45,6 +46,7 @@ function isSnapshot(value: unknown): value is Snapshot {
     isConnection(connection) &&
     isRecord(value.vehicle) &&
     isRecord(value.flight) &&
+    (ground === undefined || isGround(ground)) &&
     isSystems(systems) &&
     isMission(mission) &&
     isMap(map) &&
@@ -54,6 +56,27 @@ function isSnapshot(value: unknown): value is Snapshot {
     typeof pilot.confirmed === 'boolean' &&
     Array.isArray(value.allyMarks) &&
     value.allyMarks.every(isAllyMark)
+}
+
+function isGround(value: unknown) {
+  if (!isRecord(value)) return false
+  return [
+    'speedKmh',
+    'headingDeg',
+    'engineRpm',
+    'gear',
+    'cruiseControl',
+    'ammo',
+    'crewCurrent',
+    'crewTotal',
+    'driverState',
+    'gunnerState',
+    'stabilizer',
+    'lws',
+    'ircm',
+    'engineBroken',
+    'speedWarning',
+  ].every((key) => value[key] === undefined || isFiniteNumber(value[key]))
 }
 
 function isConnection(value: unknown) {
@@ -92,10 +115,14 @@ function isMap(value: unknown) {
   if (!isRecord(value) || !isRecord(value.counts)) return false
   const counts = value.counts
   return typeof value.valid === 'boolean' &&
+    (value.imageRevision === undefined || isFiniteNumber(value.imageRevision)) &&
+    (value.hudType === undefined || isFiniteNumber(value.hudType)) &&
     Array.isArray(value.objects) &&
     value.objects.every((object) => isRecord(object) && typeof object.type === 'string') &&
     ['total', 'hostileAir', 'ground', 'airDefense', 'strikePoint', 'airfield']
-      .every((key) => isFiniteNumber(counts[key]))
+      .every((key) => isFiniteNumber(counts[key])) &&
+    ['friendlyGround', 'hostileGround', 'captureZone', 'groundSpawn']
+      .every((key) => counts[key] === undefined || isFiniteNumber(counts[key]))
 }
 
 function isFeedEntry(value: unknown) {

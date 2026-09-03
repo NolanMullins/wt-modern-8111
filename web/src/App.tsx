@@ -1,17 +1,38 @@
+import { useState } from 'react'
+import { useBattleMode, vehicleModeForSnapshot } from './battleMode'
 import { FeedPanel } from './features/feed/FeedPanel'
 import { FlightPanel } from './features/flight/FlightPanel'
+import { GroundHeatmapPanel } from './features/ground/GroundHeatmapPanel'
+import { GroundMobilityPanel } from './features/ground/GroundMobilityPanel'
+import { GroundSystemsPanel } from './features/ground/GroundSystemsPanel'
 import { DashboardHeader } from './features/header/DashboardHeader'
 import { MapPanel } from './features/map/MapPanel'
 import { MissionPanel } from './features/mission/MissionPanel'
 import { NavigationPanel } from './features/navigation/NavigationPanel'
 import { useSelectedNavigation } from './features/navigation/useSelectedNavigation'
 import { SystemsPanel } from './features/systems/SystemsPanel'
+import { useHeatmapImage } from './map/useHeatmapImage'
+import { usePlayerTeam } from './map/usePlayerTeam'
 import { useFuelEstimate } from './useFuelEstimate'
 import { useTelemetry } from './useTelemetry'
 
 function App() {
   const { snapshot, transport, error, appVersion } = useTelemetry()
   const fuelEstimate = useFuelEstimate(snapshot)
+  const battleMode = useBattleMode(snapshot)
+  const vehicleMode = vehicleModeForSnapshot(snapshot)
+  const [heatmapEnabled, setHeatmapEnabled] = useState(false)
+  const [showEnemyFiring, setShowEnemyFiring] = useState(true)
+  const [showFriendlyLosses, setShowFriendlyLosses] = useState(true)
+  const playerTeam = usePlayerTeam(
+    battleMode === 'ground',
+    snapshot?.map.imageRevision ?? snapshot?.map.generation,
+  )
+  const heatmap = useHeatmapImage(
+    snapshot,
+    battleMode === 'ground' && heatmapEnabled,
+    playerTeam.enemyTeam,
+  )
   const {
     navigation,
     selectedTarget,
@@ -21,30 +42,52 @@ function App() {
   } = useSelectedNavigation(snapshot)
 
   return (
-    <main className="dashboard">
+    <main className="dashboard" data-battle-mode={battleMode}>
       <DashboardHeader
         snapshot={snapshot}
+        battleMode={battleMode}
         transport={transport}
         error={error}
         appVersion={appVersion}
       />
       <section className="workspace">
-        <FlightPanel snapshot={snapshot} />
+        {vehicleMode === 'ground'
+          ? <GroundMobilityPanel snapshot={snapshot} />
+          : <FlightPanel snapshot={snapshot} />}
         <NavigationPanel
           navigation={navigation}
           radioRTB={radioRTB}
           canClear={selectedTarget !== null}
           onClear={clearTarget}
         />
-        <SystemsPanel snapshot={snapshot} fuelEstimate={fuelEstimate} />
+        {vehicleMode === 'ground'
+          ? <GroundSystemsPanel snapshot={snapshot} />
+          : <SystemsPanel snapshot={snapshot} fuelEstimate={fuelEstimate} />}
         <MapPanel
           snapshot={snapshot}
+          battleMode={battleMode}
+          heatmap={heatmap}
+          showEnemyFiring={showEnemyFiring}
+          showFriendlyLosses={showFriendlyLosses}
           navigation={navigation}
           selectedTarget={selectedTarget}
           onSelectTarget={selectTarget}
           fuelEstimate={fuelEstimate}
         />
-        <MissionPanel snapshot={snapshot} onSelectTarget={selectTarget} />
+        {battleMode === 'ground'
+          ? (
+              <GroundHeatmapPanel
+                enabled={heatmapEnabled}
+                heatmap={heatmap}
+                playerTeam={playerTeam}
+                showEnemyFiring={showEnemyFiring}
+                showFriendlyLosses={showFriendlyLosses}
+                onToggle={() => setHeatmapEnabled((enabled) => !enabled)}
+                onShowEnemyFiring={setShowEnemyFiring}
+                onShowFriendlyLosses={setShowFriendlyLosses}
+              />
+            )
+          : <MissionPanel snapshot={snapshot} onSelectTarget={selectTarget} />}
         <FeedPanel snapshot={snapshot} />
       </section>
     </main>

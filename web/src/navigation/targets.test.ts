@@ -64,4 +64,18 @@ describe('target construction and inference', () => {
   ])('preserves the label for $0', (object, label) => {
     expect(targetFromMapObject(object, 3)?.name).toBe(label)
   })
+
+  it('selects a capture zone for a ground objective', () => {
+    const snapshot = navigationSnapshot([
+      { type: 'ground_model', icon: 'Player', x: 0.1, y: 0.1 },
+      { type: 'capture_zone', icon: 'A', x: 0.2, y: 0.2 },
+      { type: 'capture_zone', icon: 'B', x: 0.8, y: 0.8 },
+    ])
+    const objective = { primary: true, status: 'active', text: 'Defend zone B' }
+
+    expect(missionTarget(snapshot, objective)).toMatchObject({
+      name: objective.text,
+      object: { type: 'capture_zone', icon: 'B' },
+    })
+  })
 })

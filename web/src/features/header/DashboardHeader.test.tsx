@@ -7,6 +7,7 @@ describe('DashboardHeader', () => {
     const markup = renderToStaticMarkup(
       <DashboardHeader
         snapshot={null}
+        battleMode="air"
         transport="connecting"
         appVersion="1.2.3"
       />,
@@ -17,7 +18,12 @@ describe('DashboardHeader', () => {
 
   it('labels development builds without presenting them as releases', () => {
     const markup = renderToStaticMarkup(
-      <DashboardHeader snapshot={null} transport="connecting" appVersion="dev" />,
+      <DashboardHeader
+        snapshot={null}
+        battleMode="air"
+        transport="connecting"
+        appVersion="dev"
+      />,
     )
 
     expect(markup).toContain('development build')
@@ -28,6 +34,7 @@ describe('DashboardHeader', () => {
     const markup = renderToStaticMarkup(
       <DashboardHeader
         snapshot={null}
+        battleMode="air"
         transport="connecting"
         appVersion="unknown"
       />,

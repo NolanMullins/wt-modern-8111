@@ -110,9 +110,19 @@ export function missionTarget(
   if (candidates.length === 0 && (message.includes('defend') || message.includes('cover'))) {
     candidates = indexed(objects).filter(({ object }) => object.type === 'defending_point')
   }
+  if (candidates.length === 0 && (message.includes('capture') || message.includes('zone'))) {
+    const zones = indexed(objects).filter(({ object }) => object.type === 'capture_zone')
+    const requestedZone = message.match(/\b(?:zone|point)\s+([a-z0-9]+)\b/)?.[1]
+    const matchingZones = requestedZone
+      ? zones.filter(({ object }) => object.icon?.toLowerCase() === requestedZone)
+      : []
+    candidates = matchingZones.length > 0 ? matchingZones : zones
+  }
   if (candidates.length === 0) {
     candidates = indexed(objects).filter(({ object }) =>
-      object.type === 'bombing_point' || object.type === 'defending_point',
+      object.type === 'capture_zone' ||
+      object.type === 'bombing_point' ||
+      object.type === 'defending_point',
     )
   }
 
@@ -143,8 +153,10 @@ function targetableMapObject(object: MapObject) {
   return object.type === 'airfield' ||
     object.type === 'aircraft' ||
     object.type === 'bombing_point' ||
+    object.type === 'capture_zone' ||
     object.type === 'defending_point' ||
-    object.type === 'ground_model'
+    object.type === 'ground_model' ||
+    object.type === 'respawn_base_tank'
 }
 
 function distanceToObject(point: Point, object: MapObject): number | undefined {
@@ -181,6 +193,8 @@ function objectLabel(object: MapObject): string {
     case 'airfield': return friendly(object) ? 'Friendly airfield' : 'Enemy airfield'
     case 'bombing_point': return 'Strike point'
     case 'defending_point': return 'Defending point'
+    case 'capture_zone': return object.icon ? `Capture zone ${object.icon}` : 'Capture zone'
+    case 'respawn_base_tank': return 'Ground spawn'
     case 'respawn_base_fighter': return 'Fighter ingress'
     case 'respawn_base_bomber': return 'Bomber ingress'
     case 'point_of_interest': return 'In-game target point'

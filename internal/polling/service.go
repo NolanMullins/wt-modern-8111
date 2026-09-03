@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -29,10 +30,15 @@ type Service struct {
 	snapshot telemetry.Snapshot
 	sequence uint64
 
-	mapImage      []byte
-	mapImageType  string
-	mapGeneration int
-	mapEpoch      uint64
+	mapImage         []byte
+	mapImageType     string
+	mapGeneration    int
+	mapRevision      int
+	mapEpoch         uint64
+	sessionActive    bool
+	heatmapImage     []byte
+	heatmapImageType string
+	groundMapInfo    warthunder.MapInfo
 
 	lastChatID       int
 	lastEventID      int
@@ -129,7 +135,16 @@ func (s *Service) MapImage() ([]byte, string, int, bool) {
 	if len(s.mapImage) == 0 {
 		return nil, "", 0, false
 	}
-	return append([]byte(nil), s.mapImage...), s.mapImageType, s.mapGeneration, true
+	return append([]byte(nil), s.mapImage...), s.mapImageType, s.mapRevision, true
+}
+
+func (s *Service) GroundMapImage() ([]byte, string, int, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if len(s.heatmapImage) == 0 {
+		return nil, "", 0, false
+	}
+	return append([]byte(nil), s.heatmapImage...), s.heatmapImageType, s.mapRevision, true
 }
 
 func (s *Service) run(ctx context.Context) {
@@ -196,9 +211,19 @@ func (s *Service) pollIndicators(ctx context.Context) {
 		s.mu.Lock()
 		previousType, _ := s.raw.Indicators["type"].(string)
 		currentType, _ := value["type"].(string)
+		previousArmy, _ := s.raw.Indicators["army"].(string)
+		currentArmy, _ := value["army"].(string)
 		if previousType != "" && currentType != "" && previousType != currentType {
 			s.resetRTBLocked()
 			s.destroyed = false
+		}
+		if previousArmy != "" && currentArmy != "" && !strings.EqualFold(previousArmy, currentArmy) {
+			// War Thunder can reuse map_generation while swapping between the
+			// expanded aircraft map and the tank map.
+			s.mapEpoch++
+			s.raw.MapObjects = make([]warthunder.MapObject, 0)
+			s.sources["mapObjects"] = &sourceRecord{}
+			s.invalidateMapImageLocked()
 		}
 		// A fresh valid airframe means the pilot has respawned.
 		if s.destroyed && boolValue(value["valid"]) && !boolValue(s.raw.Indicators["valid"]) {
@@ -232,13 +257,23 @@ func (s *Service) pollMapInfo(ctx context.Context) {
 	} else {
 		s.mu.Lock()
 		previousGeneration := s.raw.MapInfo.Generation
-		if value.Generation != previousGeneration {
+		sessionEnded := s.sessionActive &&
+			!value.Valid &&
+			!boolValue(s.raw.Indicators["valid"]) &&
+			!strings.EqualFold(s.raw.Mission.Status, "running")
+		if sessionEnded {
+			s.resetGameSessionLocked()
+		} else if value.Generation != previousGeneration {
 			s.resetMapSessionLocked()
+		}
+		if value.Valid {
+			s.sessionActive = true
 		}
 		s.raw.MapInfo = value
 		s.recordSuccessLocked("mapInfo")
+		needsGroundImage := isGroundArmy(s.raw.Indicators) && len(s.heatmapImage) == 0
 		s.mu.Unlock()
-		if value.Valid && value.Generation != s.currentMapGeneration() {
+		if value.Valid && (value.Generation != s.currentMapGeneration() || needsGroundImage) {
 			s.pollMapImage(ctx, value.Generation)
 		}
 	}
@@ -328,8 +363,19 @@ func (s *Service) pollMapImage(ctx context.Context, generation int) {
 	s.mapImage = append(s.mapImage[:0], image.Body...)
 	s.mapImageType = image.ContentType
 	s.mapGeneration = generation
+	s.mapRevision++
+	if isGroundArmy(s.raw.Indicators) {
+		s.heatmapImage = append(s.heatmapImage[:0], image.Body...)
+		s.heatmapImageType = image.ContentType
+		s.groundMapInfo = cloneMapInfo(s.raw.MapInfo)
+	}
 	s.recordSuccessLocked("mapImage")
 	s.mu.Unlock()
+}
+
+func isGroundArmy(indicators map[string]any) bool {
+	army, _ := indicators["army"].(string)
+	return strings.EqualFold(army, "tank") || strings.EqualFold(army, "ground")
 }
 
 func (s *Service) publish(now time.Time) {
@@ -348,10 +394,12 @@ func (s *Service) publishNow() {
 	s.raw.Pilot = telemetry.Pilot{Callsign: callsign, Confirmed: confirmed}
 	s.raw.AllyMarks = s.allyMarks
 	s.raw.Destroyed = s.destroyed
+	s.raw.MapImageRevision = s.mapRevision
 	s.publishLocked(now)
 }
 
 func (s *Service) publishLocked(now time.Time) {
 	s.sequence++
-	s.snapshot = telemetry.BuildSnapshot(s.sequence, now, s.mode, s.raw, s.sourceStatusesLocked(now))
+	raw := s.canonicalRawDataLocked()
+	s.snapshot = telemetry.BuildSnapshot(s.sequence, now, s.mode, raw, s.sourceStatusesLocked(now))
 }

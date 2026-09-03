@@ -1,0 +1,18 @@
+{
+  "valid": true,
+  "army": "ground",
+  "type": "tankModels/ussr_t_80u",
+  "speed": 40,
+  "compass": 92.4,
+  "rpm": 1900,
+  "gear": 4,
+  "cruise_control": 0,
+  "first_stage_ammo": 23,
+  "crew_total": 3,
+  "crew_current": 3,
+  "gunner_state": 0,
+  "driver_state": 0,
+  "stabilizer": 1,
+  "lws": -1,
+  "ircm": 1
+}

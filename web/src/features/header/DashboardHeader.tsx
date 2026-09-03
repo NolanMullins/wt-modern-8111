@@ -1,12 +1,19 @@
+import {
+  type BattleMode,
+  displayVehicleName,
+  vehicleModeForSnapshot,
+} from '../../battleMode'
 import type { Snapshot } from '../../types'
 
 export function DashboardHeader({
   snapshot,
+  battleMode,
   transport,
   error,
   appVersion,
 }: {
   snapshot: Snapshot | null
+  battleMode: BattleMode
   transport: string
   error?: string
   appVersion: string
@@ -17,15 +24,21 @@ export function DashboardHeader({
     : appVersion === 'dev'
       ? ' · development build'
       : ''
+  const vehicleMode = vehicleModeForSnapshot(snapshot)
   return (
     <header className="app-header">
       <i className="brand-flag" aria-hidden="true" />
       <div className="brand">
         <strong>WT Modern 8111</strong>
-        <span>Simulator flight desk{versionLabel}</span>
+        <span>
+          {battleMode === 'ground'
+            ? vehicleMode === 'air' ? 'Ground realistic CAS' : 'Ground realistic command'
+            : 'Simulator flight desk'}
+          {versionLabel}
+        </span>
       </div>
       <div className="header-context">
-        <b>{snapshot?.vehicle.type?.replaceAll('_', ' ').toUpperCase() || 'NO VEHICLE'}</b>
+        <b>{displayVehicleName(snapshot?.vehicle.type)}</b>
         {' · '}
         {snapshot?.connection.mode === 'fixture' ? 'Captured fixture' : 'Local companion'}
       </div>

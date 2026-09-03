@@ -13,6 +13,7 @@ type Snapshot struct {
 	Connection Connection  `json:"connection"`
 	Vehicle    Vehicle     `json:"vehicle"`
 	Flight     Flight      `json:"flight"`
+	Ground     Ground      `json:"ground"`
 	Systems    Systems     `json:"systems"`
 	Navigation *Navigation `json:"navigation"`
 	Mission    Mission     `json:"mission"`
@@ -72,6 +73,24 @@ type Flight struct {
 	GLoad            *float64 `json:"gLoad,omitempty"`
 }
 
+type Ground struct {
+	SpeedKMH      *float64 `json:"speedKmh,omitempty"`
+	HeadingDeg    *float64 `json:"headingDeg,omitempty"`
+	EngineRPM     *float64 `json:"engineRpm,omitempty"`
+	Gear          *float64 `json:"gear,omitempty"`
+	CruiseControl *float64 `json:"cruiseControl,omitempty"`
+	Ammo          *float64 `json:"ammo,omitempty"`
+	CrewCurrent   *float64 `json:"crewCurrent,omitempty"`
+	CrewTotal     *float64 `json:"crewTotal,omitempty"`
+	DriverState   *float64 `json:"driverState,omitempty"`
+	GunnerState   *float64 `json:"gunnerState,omitempty"`
+	Stabilizer    *float64 `json:"stabilizer,omitempty"`
+	LWS           *float64 `json:"lws,omitempty"`
+	IRCM          *float64 `json:"ircm,omitempty"`
+	EngineBroken  *float64 `json:"engineBroken,omitempty"`
+	SpeedWarning  *float64 `json:"speedWarning,omitempty"`
+}
+
 type Systems struct {
 	Status          string   `json:"status"`
 	Severity        string   `json:"severity"`
@@ -110,24 +129,30 @@ type Mission struct {
 }
 
 type Map struct {
-	Valid      bool                   `json:"valid"`
-	Generation int                    `json:"generation,omitempty"`
-	GridSize   []float64              `json:"gridSize,omitempty"`
-	GridSteps  []float64              `json:"gridSteps,omitempty"`
-	GridZero   []float64              `json:"gridZero,omitempty"`
-	MapMin     []float64              `json:"mapMin,omitempty"`
-	MapMax     []float64              `json:"mapMax,omitempty"`
-	Objects    []warthunder.MapObject `json:"objects"`
-	Counts     MapCounts              `json:"counts"`
+	Valid         bool                   `json:"valid"`
+	Generation    int                    `json:"generation,omitempty"`
+	ImageRevision int                    `json:"imageRevision,omitempty"`
+	HUDType       int                    `json:"hudType,omitempty"`
+	GridSize      []float64              `json:"gridSize,omitempty"`
+	GridSteps     []float64              `json:"gridSteps,omitempty"`
+	GridZero      []float64              `json:"gridZero,omitempty"`
+	MapMin        []float64              `json:"mapMin,omitempty"`
+	MapMax        []float64              `json:"mapMax,omitempty"`
+	Objects       []warthunder.MapObject `json:"objects"`
+	Counts        MapCounts              `json:"counts"`
 }
 
 type MapCounts struct {
-	Total       int `json:"total"`
-	HostileAir  int `json:"hostileAir"`
-	Ground      int `json:"ground"`
-	AirDefense  int `json:"airDefense"`
-	StrikePoint int `json:"strikePoint"`
-	Airfield    int `json:"airfield"`
+	Total          int `json:"total"`
+	HostileAir     int `json:"hostileAir"`
+	Ground         int `json:"ground"`
+	FriendlyGround int `json:"friendlyGround"`
+	HostileGround  int `json:"hostileGround"`
+	AirDefense     int `json:"airDefense"`
+	CaptureZone    int `json:"captureZone"`
+	GroundSpawn    int `json:"groundSpawn"`
+	StrikePoint    int `json:"strikePoint"`
+	Airfield       int `json:"airfield"`
 }
 
 type FeedEntry struct {
@@ -145,6 +170,7 @@ type RawData struct {
 	Indicators       map[string]any
 	MapInfo          warthunder.MapInfo
 	MapObjects       []warthunder.MapObject
+	MapImageRevision int
 	Mission          warthunder.Mission
 	Feed             []FeedEntry
 	ReturnToAirfield bool

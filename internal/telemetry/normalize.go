@@ -13,15 +13,16 @@ import (
 
 func BuildSnapshot(sequence uint64, now time.Time, mode string, raw RawData, sources map[string]SourceStatus) Snapshot {
 	fresh := freshRawData(raw, sources)
+	vehicle := Vehicle{
+		Type:  stringValue(fresh.Indicators["type"]),
+		Class: stringValue(fresh.Indicators["army"]),
+	}
 	snapshot := Snapshot{
 		Version:    1,
 		Sequence:   sequence,
 		CapturedAt: now,
 		Connection: Connection{State: connectionState(raw, sources), Mode: mode, Sources: sources},
-		Vehicle: Vehicle{
-			Type:  stringValue(fresh.Indicators["type"]),
-			Class: stringValue(fresh.Indicators["army"]),
-		},
+		Vehicle:    vehicle,
 		Flight: Flight{
 			IASKMH:           number(fresh.State, "IAS, km/h"),
 			TASKMH:           number(fresh.State, "TAS, km/h"),
@@ -33,15 +34,54 @@ func BuildSnapshot(sequence uint64, now time.Time, mode string, raw RawData, sou
 			AOADeg:           number(fresh.State, "AoA, deg"),
 			GLoad:            number(fresh.State, "Ny"),
 		},
+		Ground:    buildGround(vehicle, fresh),
 		Systems:   buildSystems(fresh.State, fresh.Indicators, raw.Destroyed),
 		Mission:   buildMission(fresh.Mission),
-		Map:       buildMap(fresh.MapInfo, fresh.MapObjects),
+		Map:       buildMap(fresh.MapInfo, fresh.MapObjects, raw.MapImageRevision),
 		Feed:      append(make([]FeedEntry, 0, len(fresh.Feed)), fresh.Feed...),
 		Pilot:     raw.Pilot,
 		AllyMarks: append(make([]AllyMark, 0, len(raw.AllyMarks)), raw.AllyMarks...),
 	}
-	snapshot.Navigation = buildNavigation(snapshot.Map, snapshot.Flight, raw.ReturnToAirfield)
+	snapshot.Navigation = buildNavigation(
+		snapshot.Map,
+		snapshot.Flight,
+		raw.ReturnToAirfield && !isGroundVehicle(vehicle),
+	)
 	return snapshot
+}
+
+func buildGround(vehicle Vehicle, raw RawData) Ground {
+	if !isGroundVehicle(vehicle) {
+		return Ground{}
+	}
+	return Ground{
+		SpeedKMH:      number(raw.Indicators, "speed"),
+		HeadingDeg:    heading(raw),
+		EngineRPM:     firstNumber(number(raw.Indicators, "rpm"), number(raw.Indicators, "rpm1")),
+		Gear:          number(raw.Indicators, "gear"),
+		CruiseControl: firstNonNegativeNumber(number(raw.Indicators, "cruise_control")),
+		Ammo: firstNonNegativeNumber(
+			number(raw.Indicators, "first_stage_ammo"),
+			number(raw.Indicators, "ammo_count"),
+			number(raw.Indicators, "ammo"),
+		),
+		CrewCurrent:  firstNonNegativeNumber(number(raw.Indicators, "crew_current")),
+		CrewTotal:    firstNonNegativeNumber(number(raw.Indicators, "crew_total")),
+		DriverState:  firstNonNegativeNumber(number(raw.Indicators, "driver_state")),
+		GunnerState:  firstNonNegativeNumber(number(raw.Indicators, "gunner_state")),
+		Stabilizer:   firstNonNegativeNumber(number(raw.Indicators, "stabilizer")),
+		LWS:          firstNonNegativeNumber(number(raw.Indicators, "lws")),
+		IRCM:         firstNonNegativeNumber(number(raw.Indicators, "ircm")),
+		EngineBroken: firstNonNegativeNumber(number(raw.Indicators, "engine_broken")),
+		SpeedWarning: firstNonNegativeNumber(number(raw.Indicators, "has_speed_warning")),
+	}
+}
+
+func isGroundVehicle(vehicle Vehicle) bool {
+	class := strings.ToLower(strings.TrimSpace(vehicle.Class))
+	vehicleType := strings.ToLower(strings.TrimSpace(vehicle.Type))
+	return class == "ground" || class == "tank" ||
+		strings.HasPrefix(vehicleType, "tankmodels/")
 }
 
 // buildSystems derives real aircraft system health rather than assuming that
@@ -198,16 +238,18 @@ func buildMission(mission warthunder.Mission) Mission {
 	return result
 }
 
-func buildMap(info warthunder.MapInfo, objects []warthunder.MapObject) Map {
+func buildMap(info warthunder.MapInfo, objects []warthunder.MapObject, imageRevision int) Map {
 	result := Map{
-		Valid:      info.Valid,
-		Generation: info.Generation,
-		GridSize:   append([]float64(nil), info.GridSize...),
-		GridSteps:  append([]float64(nil), info.GridSteps...),
-		GridZero:   append([]float64(nil), info.GridZero...),
-		MapMin:     append([]float64(nil), info.MapMin...),
-		MapMax:     append([]float64(nil), info.MapMax...),
-		Objects:    append(make([]warthunder.MapObject, 0, len(objects)), objects...),
+		Valid:         info.Valid,
+		Generation:    info.Generation,
+		ImageRevision: imageRevision,
+		HUDType:       info.HUDType,
+		GridSize:      append([]float64(nil), info.GridSize...),
+		GridSteps:     append([]float64(nil), info.GridSteps...),
+		GridZero:      append([]float64(nil), info.GridZero...),
+		MapMin:        append([]float64(nil), info.MapMin...),
+		MapMax:        append([]float64(nil), info.MapMax...),
+		Objects:       append(make([]warthunder.MapObject, 0, len(objects)), objects...),
 	}
 	for _, object := range objects {
 		result.Counts.Total++
@@ -216,12 +258,23 @@ func buildMap(info warthunder.MapInfo, objects []warthunder.MapObject) Map {
 			result.Counts.HostileAir++
 		case object.Type == "ground_model":
 			result.Counts.Ground++
+			if friendlyMapColor(object.Color) {
+				result.Counts.FriendlyGround++
+			} else if hostileMapColor(object.Color) {
+				result.Counts.HostileGround++
+			}
 		}
 		if object.Icon == "SAM" || object.Icon == "SPAA" {
 			result.Counts.AirDefense++
 		}
 		if object.Type == "bombing_point" {
 			result.Counts.StrikePoint++
+		}
+		if object.Type == "capture_zone" {
+			result.Counts.CaptureZone++
+		}
+		if object.Type == "respawn_base_tank" {
+			result.Counts.GroundSpawn++
 		}
 		if object.Type == "airfield" {
 			result.Counts.Airfield++
@@ -298,10 +351,29 @@ func buildNavigation(mapData Map, flight Flight, returnToAirfield bool) *Navigat
 
 func friendlyMapColor(color string) bool {
 	switch strings.ToLower(strings.TrimSpace(color)) {
-	case "#174dff", "#39d921":
+	case "#174dff", "#043fff", "#39d921", "#67d756":
 		return true
 	}
-	return false
+	red, green, blue, ok := mapColorRGB(color)
+	return ok && ((blue > red+40 && blue > green+40) ||
+		(green > red+40 && green > blue+40))
+}
+
+func hostileMapColor(color string) bool {
+	red, green, blue, ok := mapColorRGB(color)
+	return ok && red >= 200 && green < 130 && blue < 130
+}
+
+func mapColorRGB(value string) (int, int, int, bool) {
+	hex := strings.TrimPrefix(strings.TrimSpace(value), "#")
+	if len(hex) != 6 {
+		return 0, 0, 0, false
+	}
+	parsed, err := strconv.ParseUint(hex, 16, 24)
+	if err != nil {
+		return 0, 0, 0, false
+	}
+	return int(parsed >> 16), int(parsed >> 8 & 0xff), int(parsed & 0xff), true
 }
 
 func heading(raw RawData) *float64 {
@@ -338,7 +410,10 @@ func connectionState(raw RawData, sources map[string]SourceStatus) string {
 }
 
 func freshRawData(raw RawData, sources map[string]SourceStatus) RawData {
-	result := RawData{Feed: make([]FeedEntry, 0)}
+	result := RawData{
+		Feed:             make([]FeedEntry, 0),
+		MapImageRevision: raw.MapImageRevision,
+	}
 	if sourceFresh(sources, "state") {
 		result.State = raw.State
 	}
@@ -404,6 +479,15 @@ func boolMapValue(values map[string]any, key string) bool {
 func firstNumber(values ...*float64) *float64 {
 	for _, value := range values {
 		if value != nil {
+			return value
+		}
+	}
+	return nil
+}
+
+func firstNonNegativeNumber(values ...*float64) *float64 {
+	for _, value := range values {
+		if value != nil && *value >= 0 {
 			return value
 		}
 	}
