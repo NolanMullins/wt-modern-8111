@@ -110,20 +110,24 @@ Build the portable executable, installer, and checksums:
 
 ## Releases and updates
 
-Version tags such as `v1.0.0` publish:
+Published versions such as `v1.0.0` include:
 
 - `wt-modern-setup.exe` — per-user installer
 - `wt-modern-windows-amd64.exe` — portable application
 - `checksums.txt` — SHA-256 release checksums
+
+The release workflow refuses to publish unsigned executables. Both Windows
+executables are Authenticode-signed through the SignPath Foundation workflow
+before the final checksums are generated. See
+[release signing](docs/release-signing.md) for the one-time project setup.
 
 Release builds check GitHub automatically at startup and every six hours. A
 new executable is downloaded, verified against `checksums.txt`, installed after
 the running process exits, and restarted without opening a console window.
 
 Publish a release from **Actions → Release → Run workflow** by entering a
-semantic version such as `1.0.0`. The workflow creates the matching `v1.0.0`
-release at the selected commit. Pushing an existing semantic version tag runs
-the same build.
+semantic version such as `1.0.0` while `main` is selected. The workflow signs
+the assets and creates the matching `v1.0.0` release at that `main` commit.
 
 The Go companion handles polling, normalization, local identity, and SSE
 delivery. The React frontend is split into feature, navigation, map-rendering,

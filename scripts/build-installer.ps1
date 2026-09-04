@@ -1,16 +1,20 @@
 param(
-  [string]$Version = '0.0.0'
+  [string]$Version = '0.0.0',
+  [switch]$SkipPortableBuild
 )
 
 $ErrorActionPreference = 'Stop'
 
 $root = Split-Path -Parent $PSScriptRoot
 $output = Join-Path $root 'dist'
-& (Join-Path $PSScriptRoot 'build-windows.ps1') -Version $Version
-if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
 $portable = Join-Path $output 'wt-modern-windows-amd64.exe'
-Copy-Item -Force (Join-Path $output 'wt-modern.exe') $portable
+if (!$SkipPortableBuild) {
+  & (Join-Path $PSScriptRoot 'build-windows.ps1') -Version $Version
+  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+  Copy-Item -Force (Join-Path $output 'wt-modern.exe') $portable
+} elseif (!(Test-Path $portable)) {
+  throw "Portable executable not found: $portable"
+}
 
 $compilerPaths = @(
   (Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'),
@@ -24,12 +28,4 @@ if (!$compiler) {
 & $compiler "/DAppVersion=$Version" (Join-Path $root 'installer\wt-modern.iss')
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-$assets = @(
-  $portable,
-  (Join-Path $output 'wt-modern-setup.exe')
-)
-$lines = foreach ($asset in $assets) {
-  $hash = (Get-FileHash $asset -Algorithm SHA256).Hash.ToLowerInvariant()
-  "$hash  $(Split-Path $asset -Leaf)"
-}
-Set-Content -Path (Join-Path $output 'checksums.txt') -Value $lines -Encoding ascii
+& (Join-Path $PSScriptRoot 'write-checksums.ps1')
