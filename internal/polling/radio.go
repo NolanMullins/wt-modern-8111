@@ -47,8 +47,12 @@ func (s *Service) addAllyMarkLocked(kind string, record warthunder.FeedRecord) {
 		Kind:      kind,
 		Sender:    record.Sender,
 		Message:   wtradio.StripMarkup(record.Message),
+		Subject:   "sender",
 		CreatedAt: now,
 		ExpiresAt: now.Add(allyMarkTTL),
+	}
+	if kind == "attention" {
+		mark.Subject = "target"
 	}
 	if grid, ok := wtradio.ExtractGrid(record.Message); ok {
 		mark.Grid = grid
@@ -57,6 +61,9 @@ func (s *Service) addAllyMarkLocked(kind string, record warthunder.FeedRecord) {
 			mark.Y = &y
 			mark.Located = true
 		}
+	}
+	if altitude, ok := wtradio.ExtractAltitudeMeters(record.Message); ok {
+		mark.AltitudeM = &altitude
 	}
 	s.allyMarks = append(s.allyMarks, mark)
 	s.pruneAllyMarksLocked(now)
@@ -72,6 +79,20 @@ func (s *Service) pruneAllyMarksLocked(now time.Time) {
 	s.allyMarks = append(make([]telemetry.AllyMark, 0, len(kept)), kept...)
 	if len(s.allyMarks) > maxAllyMarks {
 		s.allyMarks = s.allyMarks[len(s.allyMarks)-maxAllyMarks:]
+	}
+}
+
+func (s *Service) resolveAllyMarksLocked() {
+	for index := range s.allyMarks {
+		mark := &s.allyMarks[index]
+		if mark.Located || mark.Grid == "" {
+			continue
+		}
+		if x, y, ok := gridToNormalized(mark.Grid, s.raw.MapInfo); ok {
+			mark.X = &x
+			mark.Y = &y
+			mark.Located = true
+		}
 	}
 }
 

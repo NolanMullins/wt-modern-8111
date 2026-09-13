@@ -270,6 +270,7 @@ func (s *Service) pollMapInfo(ctx context.Context) {
 			s.sessionActive = true
 		}
 		s.raw.MapInfo = value
+		s.resolveAllyMarksLocked()
 		s.recordSuccessLocked("mapInfo")
 		needsGroundImage := isGroundArmy(s.raw.Indicators) && len(s.heatmapImage) == 0
 		s.mu.Unlock()

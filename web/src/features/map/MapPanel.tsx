@@ -6,6 +6,7 @@ import { format, signedKg } from '../../shared/formatters'
 import { Legend } from '../../shared/presentation'
 import type { Snapshot } from '../../types'
 import type { FuelEstimate } from '../../useFuelEstimate'
+import { RadioCallouts } from './RadioCallouts'
 
 export function MapPanel({
   snapshot,
@@ -52,6 +53,7 @@ export function MapPanel({
           <small>Full mission frame</small>
           <strong>Tactical map</strong>
         </div>
+        <RadioCallouts marks={snapshot?.allyMarks ?? []} />
         {!groundVehicle && <BingoFuelHUD estimate={fuelEstimate} />}
         <div className="map-mode">
           {snapshot?.connection.mode === 'fixture' ? 'Captured map fixture' : 'Drag to pan · scroll to zoom'}

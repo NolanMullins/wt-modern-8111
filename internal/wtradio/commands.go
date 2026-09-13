@@ -8,7 +8,7 @@ import (
 
 var (
 	markupPattern    = regexp.MustCompile(`<[^>]*>`)
-	gridPattern      = regexp.MustCompile(`\[([A-Za-z]{1,2})(\d{1,2})\]`)
+	locationPattern  = regexp.MustCompile(`(?i)\[([a-z]{1,2})(\d{1,2})(?:,\s*alt\.\s*([+-]?\d+(?:\.\d+)?)\s*m)?\]`)
 	gridLabelPattern = regexp.MustCompile(`^([A-Za-z]{1,2})(\d{1,2})$`)
 )
 
@@ -31,24 +31,27 @@ func IsRTB(message string) bool {
 
 func MarkKind(message string) (string, bool) {
 	normalized := Normalize(message)
-	switch {
-	case strings.HasPrefix(normalized, "guide on me"),
-		strings.HasPrefix(normalized, "follow me"):
+	switch normalized {
+	case "guide on me",
+		"follow me",
+		"move after me":
 		return "guide", true
-	case strings.HasPrefix(normalized, "attention to the map"),
-		strings.HasPrefix(normalized, "attention to the designated grid zone"):
+	case "attention to the map",
+		"attention to the designated grid zone",
+		"attention to designated grid zone":
 		return "attention", true
-	case strings.HasPrefix(normalized, "cover me"):
+	case "cover me":
 		return "cover", true
-	case strings.HasPrefix(normalized, "need help"),
-		strings.HasPrefix(normalized, "help me"):
+	case "need help",
+		"help me":
 		return "help", true
 	}
 	return "", false
 }
 
 func Normalize(message string) string {
-	return strings.Trim(strings.ToLower(strings.TrimSpace(StripMarkup(message))), " .!?")
+	message = locationPattern.ReplaceAllString(StripMarkup(message), "")
+	return strings.Trim(strings.ToLower(strings.TrimSpace(message)), " .!?")
 }
 
 func StripMarkup(message string) string {
@@ -56,11 +59,23 @@ func StripMarkup(message string) string {
 }
 
 func ExtractGrid(message string) (string, bool) {
-	match := gridPattern.FindStringSubmatch(message)
+	match := locationPattern.FindStringSubmatch(message)
 	if match == nil {
 		return "", false
 	}
 	return strings.ToUpper(match[1]) + match[2], true
+}
+
+func ExtractAltitudeMeters(message string) (float64, bool) {
+	match := locationPattern.FindStringSubmatch(message)
+	if match == nil || match[3] == "" {
+		return 0, false
+	}
+	altitude, err := strconv.ParseFloat(match[3], 64)
+	if err != nil {
+		return 0, false
+	}
+	return altitude, true
 }
 
 func ParseGrid(label string) (column string, row int, ok bool) {

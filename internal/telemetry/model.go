@@ -35,7 +35,9 @@ type AllyMark struct {
 	Kind      string    `json:"kind"`
 	Sender    string    `json:"sender"`
 	Message   string    `json:"message"`
+	Subject   string    `json:"subject"`
 	Grid      string    `json:"grid,omitempty"`
+	AltitudeM *float64  `json:"altitudeM,omitempty"`
 	X         *float64  `json:"x,omitempty"`
 	Y         *float64  `json:"y,omitempty"`
 	Located   bool      `json:"located"`

@@ -3,6 +3,7 @@ package polling
 import (
 	"context"
 	"fmt"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -423,6 +424,12 @@ func TestRTBActivatesOnLiveHeadingToBasePreset(t *testing.T) {
 func TestGuideOnMeMarksAlliesOnly(t *testing.T) {
 	service := newTestService()
 	service.identity.SetCallsign("=GRIND= DEERSLUG")
+	service.raw.MapInfo = warthunder.MapInfo{
+		GridSteps: []float64{13100, 13100},
+		GridZero:  []float64{-65536, 65536},
+		MapMin:    []float64{-65536, -65536},
+		MapMax:    []float64{65536, 65536},
+	}
 
 	service.processChatRecordLocked(warthunder.FeedRecord{
 		ID:      1,
@@ -436,7 +443,7 @@ func TestGuideOnMeMarksAlliesOnly(t *testing.T) {
 
 	service.processChatRecordLocked(warthunder.FeedRecord{
 		ID:      2,
-		Message: "Guide on me!<color=#FF96966E> [C4]</color>",
+		Message: "Move after me!<color=#FF96966E> [C4, alt. 600 m]</color>",
 		Sender:  "FISHY THUNDER",
 		Mode:    "Team",
 	}, true)
@@ -449,6 +456,12 @@ func TestGuideOnMeMarksAlliesOnly(t *testing.T) {
 	if service.allyMarks[0].Grid != "C4" {
 		t.Fatalf("expected teammate coordinate payload, got %+v", service.allyMarks[0])
 	}
+	if service.allyMarks[0].Subject != "sender" ||
+		service.allyMarks[0].AltitudeM == nil ||
+		*service.allyMarks[0].AltitudeM != 600 ||
+		!service.allyMarks[0].Located {
+		t.Fatalf("expected located sender position with altitude, got %+v", service.allyMarks[0])
+	}
 	if lifetime := service.allyMarks[0].ExpiresAt.Sub(service.allyMarks[0].CreatedAt); lifetime != 35*time.Second {
 		t.Fatalf("ally mark lifetime = %v, want 30s visible plus 5s fade", lifetime)
 	}
@@ -458,10 +471,10 @@ func TestAllyMarkResolvesGridReference(t *testing.T) {
 	service := newTestService()
 	service.identity.SetCallsign("=GRIND= DEERSLUG")
 	service.raw.MapInfo = warthunder.MapInfo{
-		GridSteps: []float64{13100, 13100},
-		GridZero:  []float64{-65536, 65536},
-		MapMin:    []float64{-65536, -65536},
-		MapMax:    []float64{65536, 65536},
+		GridSteps: []float64{10, 10},
+		GridZero:  []float64{0, 100},
+		MapMin:    []float64{0, 0},
+		MapMax:    []float64{100, 100},
 	}
 
 	service.processChatRecordLocked(warthunder.FeedRecord{
@@ -478,12 +491,40 @@ func TestAllyMarkResolvesGridReference(t *testing.T) {
 	if mark.Grid != "C4" || !mark.Located || mark.X == nil || mark.Y == nil {
 		t.Fatalf("grid not resolved: %+v", mark)
 	}
-	if *mark.X < 0 || *mark.X > 1 || *mark.Y < 0 || *mark.Y > 1 {
-		t.Fatalf("resolved position out of range: %v %v", *mark.X, *mark.Y)
+	if mark.Subject != "target" {
+		t.Fatalf("attention callout subject = %q, want target", mark.Subject)
+	}
+	if math.Abs(*mark.X-0.25) > 0.000001 || math.Abs(*mark.Y-0.35) > 0.000001 {
+		t.Fatalf("C4 resolved to %v, %v; want 0.25, 0.35", *mark.X, *mark.Y)
 	}
 	// The colour markup must not leak into the displayed message.
 	if strings.Contains(mark.Message, "<color") {
 		t.Fatalf("markup leaked into message: %q", mark.Message)
+	}
+}
+
+func TestAllyMarkResolvesWhenMapMetadataArrives(t *testing.T) {
+	service := newTestService()
+	service.identity.SetCallsign("SELF")
+	service.processChatRecordLocked(warthunder.FeedRecord{
+		ID:      4,
+		Message: "Guide on me!<color=#FF96966E> [C4, alt. 600 m]</color>",
+		Sender:  "TEAMMATE",
+		Mode:    "Team",
+	}, true)
+	if len(service.allyMarks) != 1 || service.allyMarks[0].Located {
+		t.Fatalf("mark unexpectedly resolved without map metadata: %+v", service.allyMarks)
+	}
+
+	service.raw.MapInfo = warthunder.MapInfo{
+		GridSteps: []float64{10, 10},
+		GridZero:  []float64{0, 100},
+		MapMin:    []float64{0, 0},
+		MapMax:    []float64{100, 100},
+	}
+	service.resolveAllyMarksLocked()
+	if !service.allyMarks[0].Located {
+		t.Fatalf("mark was not resolved after map metadata arrived: %+v", service.allyMarks[0])
 	}
 }
 

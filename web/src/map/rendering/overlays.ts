@@ -1,14 +1,8 @@
 import type { NavigationSolution } from '../../navigation'
-import type { Snapshot } from '../../types'
+import type { AllyMark, Snapshot } from '../../types'
 import { mapToCanvas, type MapRect } from '../geometry'
 import { cornerSquarePath } from './glyphs'
 
-const allyMarkLabels: Record<string, string> = {
-  guide: 'GUIDE ON ME',
-  attention: 'ATTENTION',
-  cover: 'COVER ME',
-  help: 'NEEDS HELP',
-}
 const allyMarkFadeMilliseconds = 5_000
 
 export function drawNavigationOverlay(
@@ -38,6 +32,7 @@ export function drawNavigationOverlay(
 export function drawAllyMarkOverlay(
   context: CanvasRenderingContext2D,
   rect: MapRect,
+  viewport: MapRect,
   snapshot: Snapshot,
 ) {
   const marks = (snapshot.allyMarks ?? []).filter(
@@ -58,11 +53,12 @@ export function drawAllyMarkOverlay(
     const opacity = Math.min(1, Math.max(0, remaining / allyMarkFadeMilliseconds))
     const pulse = age < 6 ? 1 + 0.25 * Math.sin(age * Math.PI * 2) : 1
     const radius = 13 * ratio * pulse
+    const presentation = allyMarkPresentation(mark)
 
     context.save()
     context.globalAlpha = opacity
-    context.strokeStyle = '#39d921'
-    context.fillStyle = 'rgba(57, 217, 33, 0.16)'
+    context.strokeStyle = presentation.color
+    context.fillStyle = presentation.fill
     context.lineWidth = 2 * ratio
 
     context.beginPath()
@@ -77,19 +73,48 @@ export function drawAllyMarkOverlay(
     context.lineTo(position.x, position.y + radius + 5 * ratio)
     context.stroke()
 
-    const label = allyMarkLabels[mark.kind] ?? mark.kind.toUpperCase()
     context.font = `${10 * ratio}px "Inter", system-ui, sans-serif`
     context.textAlign = 'center'
     context.textBaseline = 'bottom'
     context.fillStyle = '#0b0f0a'
     context.strokeStyle = '#0b0f0a'
     context.lineWidth = 3 * ratio
-    const text = `${label} · ${mark.sender}`
-    context.strokeText(text, position.x, position.y - radius - 8 * ratio)
-    context.fillStyle = '#8dfa77'
-    context.fillText(text, position.x, position.y - radius - 8 * ratio)
+    const text = presentation.label
+    const halfWidth = context.measureText(text).width / 2
+    const textX = Math.min(
+      viewport.x + viewport.size - halfWidth - 4 * ratio,
+      Math.max(viewport.x + halfWidth + 4 * ratio, position.x),
+    )
+    const textY = Math.max(
+      viewport.y + 12 * ratio,
+      position.y - radius - 8 * ratio,
+    )
+    context.strokeText(text, textX, textY)
+    context.fillStyle = presentation.color
+    context.fillText(text, textX, textY)
     context.restore()
   })
+}
+
+export function allyMarkPresentation(mark: AllyMark) {
+  const location = [
+    mark.grid,
+    mark.subject === 'sender' && mark.altitudeM !== undefined
+      ? `${Math.round(mark.altitudeM)} M`
+      : undefined,
+  ].filter(Boolean).join(' · ')
+  const prefix = mark.subject === 'target'
+    ? 'PING'
+    : mark.kind === 'cover' || mark.kind === 'help'
+      ? 'HELP'
+      : 'ALLY'
+  return {
+    color: mark.subject === 'target' ? '#ffd166' : '#8dfa77',
+    fill: mark.subject === 'target'
+      ? 'rgba(255, 209, 102, 0.18)'
+      : 'rgba(57, 217, 33, 0.16)',
+    label: [prefix, mark.sender, location].filter(Boolean).join(' · '),
+  }
 }
 
 function drawSelectedTarget(

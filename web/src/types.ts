@@ -135,16 +135,20 @@ export interface Snapshot {
     callsign?: string
     confirmed: boolean
   }
-  allyMarks: Array<{
-    key: string
-    kind: 'guide' | 'attention' | 'cover' | 'help'
-    sender: string
-    message: string
-    grid?: string
-    x?: number
-    y?: number
-    located: boolean
-    createdAt: string
-    expiresAt: string
-  }>
+  allyMarks: AllyMark[]
+}
+
+export interface AllyMark {
+  key: string
+  kind: 'guide' | 'attention' | 'cover' | 'help'
+  subject: 'sender' | 'target'
+  sender: string
+  message: string
+  grid?: string
+  altitudeM?: number
+  x?: number
+  y?: number
+  located: boolean
+  createdAt: string
+  expiresAt: string
 }

@@ -461,6 +461,21 @@ IDs are scoped to one mission.
 Messages and player names are untrusted display text. They must be rendered as
 text, never inserted as HTML.
 
+The 2026-09-13 Air Simulator capture established two distinct spatial radio
+payloads:
+
+- Sender-location calls such as `Guide on me`, `Follow me`, `Move after me`,
+  and `Cover me` include a grid and altitude for remote teammates, for example
+  `[C5, alt. 600 m]`.
+- `Attention to the map` includes only a target grid such as `[B4]`. This
+  coordinate is the point being called out, not the sender's position.
+
+The sender sees their own location call without the coordinate suffix. Remote
+aircraft positions cannot be recovered from `/map_obj.json`; the grid and
+altitude embedded in chat are the only observed source. No
+`point_of_interest` object appeared for any of the four attention pings in the
+capture.
+
 ## Polling and caching
 
 Recommended starting rates balance responsiveness with a conservative load on
