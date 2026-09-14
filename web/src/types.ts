@@ -142,9 +142,17 @@ export interface AllyMark {
   key: string
   kind: 'guide' | 'attention' | 'cover' | 'help'
   subject: 'sender' | 'target'
+  source: 'chat' | 'telemetry' | 'fused'
+  precision: 'unavailable' | 'grid' | 'exact'
   sender: string
   message: string
   grid?: string
+  area?: {
+    minX: number
+    minY: number
+    maxX: number
+    maxY: number
+  }
   altitudeM?: number
   x?: number
   y?: number

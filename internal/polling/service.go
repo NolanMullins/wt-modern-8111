@@ -51,6 +51,8 @@ type Service struct {
 	returnToAirfield bool
 	landingSamples   int
 	allyMarks        []telemetry.AllyMark
+	mapObjectsPrimed bool
+	pointSignalKeys  map[string]struct{}
 	destroyed        bool
 }
 
@@ -62,12 +64,13 @@ func NewService(client *warthunder.Client) *Service {
 // tests can avoid touching the user's persisted identity file.
 func NewServiceWithIdentity(client *warthunder.Client, resolver *identity.Resolver) *Service {
 	service := &Service{
-		client:   client,
-		mode:     "live",
-		sources:  make(map[string]*sourceRecord),
-		feedKeys: make(map[string]struct{}),
-		identity: resolver,
-		now:      time.Now,
+		client:          client,
+		mode:            "live",
+		sources:         make(map[string]*sourceRecord),
+		feedKeys:        make(map[string]struct{}),
+		pointSignalKeys: make(map[string]struct{}),
+		identity:        resolver,
+		now:             time.Now,
 	}
 	service.publish(service.now())
 	return service
@@ -75,11 +78,12 @@ func NewServiceWithIdentity(client *warthunder.Client, resolver *identity.Resolv
 
 func NewFixtureService(directory string) (*Service, error) {
 	service := &Service{
-		mode:     "fixture",
-		sources:  make(map[string]*sourceRecord),
-		feedKeys: make(map[string]struct{}),
-		identity: identity.NewResolver(""),
-		now:      time.Now,
+		mode:            "fixture",
+		sources:         make(map[string]*sourceRecord),
+		feedKeys:        make(map[string]struct{}),
+		pointSignalKeys: make(map[string]struct{}),
+		identity:        identity.NewResolver(""),
+		now:             time.Now,
 	}
 	files := []struct {
 		name   string
@@ -223,6 +227,9 @@ func (s *Service) pollIndicators(ctx context.Context) {
 			s.mapEpoch++
 			s.raw.MapObjects = make([]warthunder.MapObject, 0)
 			s.sources["mapObjects"] = &sourceRecord{}
+			s.allyMarks = nil
+			s.mapObjectsPrimed = false
+			s.pointSignalKeys = make(map[string]struct{})
 			s.invalidateMapImageLocked()
 		}
 		// A fresh valid airframe means the pilot has respawned.
@@ -245,7 +252,9 @@ func (s *Service) pollMapObjects(ctx context.Context) {
 			s.mu.Unlock()
 			return
 		}
+		s.processMapObjectsLocked(value, s.mapObjectsPrimed)
 		s.raw.MapObjects = value
+		s.mapObjectsPrimed = true
 		s.recordSuccessLocked("mapObjects")
 		s.mu.Unlock()
 	}

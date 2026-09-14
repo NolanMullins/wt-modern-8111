@@ -487,6 +487,13 @@ object switching to its blue blinking state for about five seconds. Therefore
 the reported grid cell is the highest available precision when no separate
 `point_of_interest` object is present.
 
+WT Modern treats map telemetry as authoritative when it does expose a new
+`point_of_interest`: the exact normalized coordinate is persisted immediately,
+even without a chat record. A nearby attention message can then enrich that
+signal with its sender and grid in either polling order. Chat remains the
+fallback because tested Simulator sessions did not emit point objects for
+ordinary teammate attention calls.
+
 ## Polling and caching
 
 Recommended starting rates balance responsiveness with a conservative load on

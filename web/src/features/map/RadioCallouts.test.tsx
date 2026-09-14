@@ -11,6 +11,8 @@ const baseMark: AllyMark = {
   key: 'chat-1',
   kind: 'guide',
   subject: 'sender',
+  source: 'chat',
+  precision: 'grid',
   sender: 'ALLY',
   message: 'Guide on me! [C5, alt. 600 m]',
   grid: 'C5',
@@ -61,5 +63,14 @@ describe('RadioCallouts', () => {
 
     expect(activeRadioCallouts([baseMark], expiry + 1)).toEqual([])
     expect(calloutOpacity(baseMark, expiry - 2_500)).toBe(0.5)
+  })
+
+  it('shows a known grid even before map metadata locates it', () => {
+    const markup = renderToStaticMarkup(
+      <RadioCallouts marks={[{ ...baseMark, located: false, x: undefined, y: undefined }]} />,
+    )
+
+    expect(markup).toContain('C5 · 600 m')
+    expect(markup).not.toContain('Position unavailable')
   })
 })

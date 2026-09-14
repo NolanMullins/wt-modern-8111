@@ -23,7 +23,7 @@ export function RadioCallouts({ marks }: { marks: AllyMark[] }) {
           style={{ opacity: calloutOpacity(mark, now) }}
         >
           <strong>{calloutTitle(mark)}</strong>
-          <span>{mark.sender}</span>
+          <span>{mark.sender || 'Map telemetry'}</span>
           <em>{locationLabel(mark)}</em>
         </div>
       ))}
@@ -32,13 +32,18 @@ export function RadioCallouts({ marks }: { marks: AllyMark[] }) {
 }
 
 function calloutTitle(mark: AllyMark) {
+  if (mark.source === 'telemetry' && mark.precision === 'exact') {
+    return 'EXACT MAP SIGNAL'
+  }
   if (mark.subject === 'target') return 'MAP PING'
   if (mark.kind === 'cover' || mark.kind === 'help') return 'SUPPORT REQUEST'
   return 'ALLY POSITION'
 }
 
 function locationLabel(mark: AllyMark) {
-  if (!mark.located || !mark.grid) return 'Position unavailable'
+  if (mark.precision === 'exact' && !mark.grid) return 'Exact telemetry position'
+  if (!mark.grid) return 'Position unavailable'
+  if (mark.precision === 'exact') return `Exact · ${mark.grid}`
   if (mark.subject === 'sender' && mark.altitudeM !== undefined) {
     return `${mark.grid} · ${Math.round(mark.altitudeM)} m`
   }

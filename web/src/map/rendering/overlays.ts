@@ -114,6 +114,15 @@ export function allyMarkGridBounds(
   mark: AllyMark,
   map: Pick<Snapshot['map'], 'mapMin' | 'mapMax' | 'gridSteps'>,
 ) {
+  if (mark.precision === 'exact') return undefined
+  if (mark.area) {
+    return {
+      x: mark.area.minX,
+      y: mark.area.minY,
+      width: mark.area.maxX - mark.area.minX,
+      height: mark.area.maxY - mark.area.minY,
+    }
+  }
   if (!mark.grid) return undefined
   const match = /^([A-Z]{1,2})(\d{1,2})$/i.exec(mark.grid)
   const { mapMin, mapMax, gridSteps } = map
@@ -159,7 +168,7 @@ export function allyMarkPresentation(mark: AllyMark) {
     fill: mark.subject === 'target'
       ? 'rgba(255, 209, 102, 0.18)'
       : 'rgba(57, 217, 33, 0.16)',
-    label: [prefix, mark.sender, location].filter(Boolean).join(' · '),
+    label: [prefix, mark.sender || 'MAP TELEMETRY', location].filter(Boolean).join(' · '),
   }
 }
 

@@ -24,7 +24,16 @@ func TestCanonicalRawDataTransformsCASIntoGroundMap(t *testing.T) {
 	service.raw.MapObjects = []warthunder.MapObject{
 		{Type: "aircraft", Icon: "Player", X: &x, Y: &y},
 	}
-	service.raw.AllyMarks = []telemetry.AllyMark{{X: &markX, Y: &markY}}
+	service.raw.AllyMarks = []telemetry.AllyMark{{
+		X: &markX,
+		Y: &markY,
+		Area: &telemetry.MapArea{
+			MinX: 0.2,
+			MinY: 0.7,
+			MaxX: 0.3,
+			MaxY: 0.8,
+		},
+	}}
 	service.groundMapInfo = warthunder.MapInfo{
 		Valid:      true,
 		Generation: 2,
@@ -44,6 +53,14 @@ func TestCanonicalRawDataTransformsCASIntoGroundMap(t *testing.T) {
 		math.Abs(*raw.AllyMarks[0].X) > 0.001 ||
 		math.Abs(*raw.AllyMarks[0].Y-1) > 0.001 {
 		t.Fatalf("ally mark = %v, %v, want 0, 1", raw.AllyMarks[0].X, raw.AllyMarks[0].Y)
+	}
+	area := raw.AllyMarks[0].Area
+	if area == nil ||
+		math.Abs(area.MinX-(-0.2)) > 0.001 ||
+		math.Abs(area.MinY-0.8) > 0.001 ||
+		math.Abs(area.MaxX-0.2) > 0.001 ||
+		math.Abs(area.MaxY-1.2) > 0.001 {
+		t.Fatalf("ally mark area = %+v, want transformed bounds", area)
 	}
 	if raw.MapInfo.GridSteps[0] != 100 {
 		t.Fatalf("grid steps = %v", raw.MapInfo.GridSteps)

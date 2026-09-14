@@ -6,6 +6,8 @@ const mark: AllyMark = {
   key: 'chat-1',
   kind: 'guide',
   subject: 'sender',
+  source: 'chat',
+  precision: 'grid',
   sender: 'ALLY',
   message: 'Guide on me!',
   grid: 'C5',
@@ -35,5 +37,16 @@ describe('allyMarkPresentation', () => {
       width: 0.099945068359375,
       height: 0.099945068359375,
     })
+  })
+
+  it('keeps exact telemetry coordinates as point markers', () => {
+    expect(allyMarkGridBounds(
+      { ...mark, source: 'fused', precision: 'exact' },
+      {
+        mapMin: [-65_536, -65_536],
+        mapMax: [65_536, 65_536],
+        gridSteps: [13_100, 13_100],
+      },
+    )).toBeUndefined()
   })
 })
