@@ -97,12 +97,11 @@ func (s *Service) resolveAllyMarksLocked() {
 }
 
 func gridToNormalized(grid string, info warthunder.MapInfo) (float64, float64, bool) {
-	columnLabel, row, ok := wtradio.ParseGrid(grid)
+	rowLabel, column, ok := wtradio.ParseGrid(grid)
 	if !ok {
 		return 0, 0, false
 	}
-	if len(info.GridSteps) < 2 || len(info.GridZero) < 2 ||
-		len(info.MapMin) < 2 || len(info.MapMax) < 2 {
+	if len(info.GridSteps) < 2 || len(info.MapMin) < 2 || len(info.MapMax) < 2 {
 		return 0, 0, false
 	}
 	stepX, stepY := info.GridSteps[0], info.GridSteps[1]
@@ -112,16 +111,16 @@ func gridToNormalized(grid string, info warthunder.MapInfo) (float64, float64, b
 		return 0, 0, false
 	}
 
-	column := 0
-	for _, symbol := range columnLabel {
-		column = column*26 + int(symbol-'A') + 1
+	row := 0
+	for _, symbol := range rowLabel {
+		row = row*26 + int(symbol-'A') + 1
 	}
-	column--
 	row--
-	worldX := info.GridZero[0] + (float64(column)+0.5)*stepX
-	worldY := info.GridZero[1] - (float64(row)+0.5)*math.Abs(stepY)
+	column--
+	worldX := info.MapMin[0] + (float64(column)+0.5)*math.Abs(stepX)
+	worldY := info.MapMin[1] + (float64(row)+0.5)*math.Abs(stepY)
 	x := (worldX - info.MapMin[0]) / spanX
-	y := (info.MapMax[1] - worldY) / spanY
+	y := (worldY - info.MapMin[1]) / spanY
 	if x < 0 || x > 1 || y < 0 || y > 1 {
 		return 0, 0, false
 	}

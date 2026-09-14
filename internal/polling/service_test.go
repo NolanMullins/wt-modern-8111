@@ -494,8 +494,8 @@ func TestAllyMarkResolvesGridReference(t *testing.T) {
 	if mark.Subject != "target" {
 		t.Fatalf("attention callout subject = %q, want target", mark.Subject)
 	}
-	if math.Abs(*mark.X-0.25) > 0.000001 || math.Abs(*mark.Y-0.35) > 0.000001 {
-		t.Fatalf("C4 resolved to %v, %v; want 0.25, 0.35", *mark.X, *mark.Y)
+	if math.Abs(*mark.X-0.35) > 0.000001 || math.Abs(*mark.Y-0.25) > 0.000001 {
+		t.Fatalf("C4 resolved to %v, %v; want 0.35, 0.25", *mark.X, *mark.Y)
 	}
 	// The colour markup must not leak into the displayed message.
 	if strings.Contains(mark.Message, "<color") {

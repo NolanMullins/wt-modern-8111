@@ -476,6 +476,9 @@ altitude embedded in chat are the only observed source. No
 `point_of_interest` object appeared for any of the four attention pings in the
 capture.
 
+Gaijin's built-in page labels lettered rows and numbered columns from
+`map_min`, using `grid_steps`; its grid renderer does not use `grid_zero`.
+
 ## Polling and caching
 
 Recommended starting rates balance responsiveness with a conservative load on

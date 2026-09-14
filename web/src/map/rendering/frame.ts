@@ -87,18 +87,15 @@ function drawGrid(
   rect: MapRect,
   snapshot: Snapshot,
 ) {
-  const { mapMin, mapMax, gridSteps, gridZero } = snapshot.map
+  const { mapMin, mapMax, gridSteps } = snapshot.map
   if (!mapMin || !mapMax || !gridSteps ||
     mapMin.length < 2 || mapMax.length < 2 || gridSteps.length < 2) return
   const width = mapMax[0] - mapMin[0]
   const height = mapMax[1] - mapMin[1]
-  const gridOrigin = gridZero && gridZero.length >= 2
-    ? gridZero
-    : [mapMin[0], mapMax[1]]
-  if (![width, height, gridSteps[0], gridSteps[1], ...gridOrigin].every(Number.isFinite) ||
+  if (![width, height, gridSteps[0], gridSteps[1]].every(Number.isFinite) ||
     width <= 0 || height <= 0 || gridSteps[0] <= 0 || gridSteps[1] <= 0) return
-  const columns = visibleGridCells(mapMin[0], mapMax[0], gridOrigin[0], gridSteps[0], 1)
-  const rows = visibleGridCells(mapMin[1], mapMax[1], gridOrigin[1], gridSteps[1], -1)
+  const columns = visibleGridCells(mapMin[0], mapMax[0], gridSteps[0])
+  const rows = visibleGridCells(mapMin[1], mapMax[1], gridSteps[1])
   const ratio = Math.min(window.devicePixelRatio || 1, 2)
 
   context.save()
@@ -109,17 +106,17 @@ function drawGrid(
   context.lineWidth = ratio
   context.font = `700 ${Math.max(11 * ratio, viewport.size * 0.018)}px Arial`
   for (const row of rows) {
-    const y = rect.y + ((mapMax[1] - row.boundary) / height) * rect.size
+    const y = rect.y + ((row.boundary - mapMin[1]) / height) * rect.size
     context.beginPath()
     context.moveTo(rect.x, y)
     context.lineTo(rect.x + rect.size, y)
     context.stroke()
-    if (row.center >= mapMin[1]) {
+    if (row.center <= mapMax[1]) {
       context.textAlign = 'left'
       context.textBaseline = 'middle'
-      const centerY = rect.y + ((mapMax[1] - row.center) / height) * rect.size
+      const centerY = rect.y + ((row.center - mapMin[1]) / height) * rect.size
       if (centerY >= viewport.y && centerY <= viewport.y + viewport.size) {
-        context.fillText(String(row.index + 1), viewport.x + 5 * ratio, centerY)
+        context.fillText(gridRowLabel(row.index), viewport.x + 5 * ratio, centerY)
       }
     }
   }
@@ -134,7 +131,7 @@ function drawGrid(
       context.textBaseline = 'top'
       const centerX = rect.x + ((column.center - mapMin[0]) / width) * rect.size
       if (centerX >= viewport.x && centerX <= viewport.x + viewport.size) {
-        context.fillText(gridColumnLabel(column.index), centerX, viewport.y + 5 * ratio)
+        context.fillText(String(column.index + 1), centerX, viewport.y + 5 * ratio)
       }
     }
   }
@@ -144,29 +141,22 @@ function drawGrid(
 export function visibleGridCells(
   min: number,
   max: number,
-  zero: number,
   step: number,
-  direction: 1 | -1,
 ) {
-  const firstIndex = Math.max(
-    0,
-    Math.ceil(direction === 1 ? (min - zero) / step : (zero - max) / step),
-  )
   const cells: Array<{ index: number; boundary: number; center: number }> = []
-  for (let index = firstIndex; index < firstIndex + 100; index += 1) {
-    const boundary = zero + direction * index * step
-    if ((direction === 1 && boundary > max) ||
-      (direction === -1 && boundary < min)) break
+  for (let index = 0; index < 100; index += 1) {
+    const boundary = min + index * step
+    if (boundary > max) break
     cells.push({
       index,
       boundary,
-      center: boundary + direction * step / 2,
+      center: boundary + step / 2,
     })
   }
   return cells
 }
 
-export function gridColumnLabel(index: number) {
+export function gridRowLabel(index: number) {
   let label = ''
   let value = index + 1
   while (value > 0) {
