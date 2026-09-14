@@ -21,13 +21,9 @@ func (s *Service) resetMapSessionLocked() {
 	s.sources["mapObjects"] = &sourceRecord{}
 	s.mapObjectsPrimed = false
 	s.pointSignalKeys = make(map[string]struct{})
-	s.resetFeedSessionLocked()
 	s.resetRTBLocked()
 	s.allyMarks = nil
 	s.destroyed = false
-	if s.identity != nil {
-		s.identity.ResetSession()
-	}
 }
 
 func (s *Service) invalidateMapImageLocked() {
@@ -39,6 +35,10 @@ func (s *Service) invalidateMapImageLocked() {
 
 func (s *Service) resetGameSessionLocked() {
 	s.resetMapSessionLocked()
+	s.resetFeedSessionLocked()
+	if s.identity != nil {
+		s.identity.ResetSession()
+	}
 	s.sessionActive = false
 	s.mapRevision = 0
 	s.heatmapImage = nil

@@ -170,6 +170,9 @@ func TestVehicleClassChangeInvalidatesCachedMapView(t *testing.T) {
 		len(service.allyMarks) != 0 {
 		t.Fatal("army switch retained stale map-signal state")
 	}
+	if len(service.raw.MapInfo.MapMin) != 0 || service.raw.MapInfo.Generation != 0 {
+		t.Fatalf("army switch retained stale map metadata: %+v", service.raw.MapInfo)
+	}
 	ground, contentType, revision, ok := service.GroundMapImage()
 	if !ok || string(ground) != "ground" || contentType != "image/jpeg" || revision != 8 {
 		t.Fatalf(
@@ -395,6 +398,90 @@ func TestRunningMissionRetainsGroundMapAcrossInvalidCASFrame(t *testing.T) {
 	image, _, _, ok := service.GroundMapImage()
 	if !ok || string(image) != "ground" || !service.groundMapInfo.Valid {
 		t.Fatalf("running mission lost retained ground map: %q available=%t", image, ok)
+	}
+}
+
+func TestMapGenerationChangePreservesRecentSignalsAndFeedCursors(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		switch request.URL.Path {
+		case "/map_info.json":
+			writer.Header().Set("Content-Type", "application/json")
+			_, _ = fmt.Fprint(
+				writer,
+				`{"valid":true,"map_generation":2,"grid_steps":[10,10],`+
+					`"map_min":[0,0],"map_max":[100,100]}`,
+			)
+		case "/map.img":
+			writer.Header().Set("Content-Type", "image/png")
+			_, _ = writer.Write([]byte("map"))
+		default:
+			http.NotFound(writer, request)
+		}
+	}))
+	defer server.Close()
+	service := NewService(warthunder.NewClient(server.URL, time.Second))
+	now := time.Now()
+	service.now = func() time.Time { return now }
+	service.raw.MapInfo = warthunder.MapInfo{Valid: true, Generation: 1}
+	service.lastChatID = 42
+	service.chatPrimed = true
+	service.allyMarks = []telemetry.AllyMark{
+		{
+			Key:       "stale",
+			CreatedAt: now.Add(-10 * time.Second),
+			ExpiresAt: now.Add(time.Minute),
+		},
+		{
+			Key:       "pending",
+			Kind:      "attention",
+			Subject:   "target",
+			Source:    "chat",
+			Precision: "grid",
+			Grid:      "C4",
+			Located:   true,
+			CreatedAt: now.Add(-time.Second),
+			ExpiresAt: now.Add(time.Minute),
+		},
+	}
+
+	service.pollMapInfo(context.Background())
+
+	if service.lastChatID != 42 || !service.chatPrimed {
+		t.Fatalf("map generation reset feed cursor: id=%d primed=%t", service.lastChatID, service.chatPrimed)
+	}
+	if len(service.allyMarks) != 1 || service.allyMarks[0].Key != "pending" ||
+		!service.allyMarks[0].Located || service.allyMarks[0].Area == nil {
+		t.Fatalf("recent signal was not preserved and re-resolved: %+v", service.allyMarks)
+	}
+}
+
+func TestStaleMapInfoResponseCannotCrossMapEpoch(t *testing.T) {
+	started := make(chan struct{})
+	release := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		close(started)
+		<-release
+		writer.Header().Set("Content-Type", "application/json")
+		_, _ = fmt.Fprint(writer, `{"valid":true,"map_generation":2}`)
+	}))
+	defer server.Close()
+	service := NewService(warthunder.NewClient(server.URL, time.Second))
+	service.raw.MapInfo = warthunder.MapInfo{Valid: true, Generation: 1}
+
+	done := make(chan struct{})
+	go func() {
+		service.pollMapInfo(context.Background())
+		close(done)
+	}()
+	<-started
+	service.mu.Lock()
+	service.resetMapSessionLocked()
+	service.mu.Unlock()
+	close(release)
+	<-done
+
+	if service.raw.MapInfo.Generation != 1 {
+		t.Fatalf("stale map info crossed epoch: %+v", service.raw.MapInfo)
 	}
 }
 
@@ -745,10 +832,12 @@ func TestAllyMarksExpire(t *testing.T) {
 	}
 }
 
-func TestMapSessionResetPreservesPrimingAndClearsPointSignals(t *testing.T) {
+func TestMapSessionResetReprimesPointsAndPreservesFeed(t *testing.T) {
 	service := newTestService()
 	service.mapObjectsPrimed = true
 	service.pointSignalKeys["0.100000-0.200000"] = struct{}{}
+	service.lastChatID = 8
+	service.chatPrimed = true
 
 	service.resetMapSessionLocked()
 
@@ -757,6 +846,9 @@ func TestMapSessionResetPreservesPrimingAndClearsPointSignals(t *testing.T) {
 	}
 	if len(service.pointSignalKeys) != 0 {
 		t.Fatalf("point signal keys survived map reset: %+v", service.pointSignalKeys)
+	}
+	if service.lastChatID != 8 || !service.chatPrimed {
+		t.Fatal("map-only reset cleared feed cursor state")
 	}
 }
 

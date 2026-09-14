@@ -15,7 +15,7 @@ export function parseSnapshotPayload(payload: string): SnapshotParseResult {
   if (!isSnapshot(value)) {
     return { ok: false, error: 'Snapshot payload does not match the v1 envelope' }
   }
-  return { ok: true, snapshot: value }
+  return { ok: true, snapshot: normalizeSnapshot(value) }
 }
 
 export function selectNewerSnapshot(
@@ -142,6 +142,19 @@ function isAllyMark(value: unknown) {
     typeof value.located === 'boolean' &&
     isTimestamp(value.createdAt) &&
     isTimestamp(value.expiresAt)
+}
+
+function normalizeSnapshot(snapshot: Snapshot): Snapshot {
+  return {
+    ...snapshot,
+    allyMarks: snapshot.allyMarks.map((mark) => ({
+      ...mark,
+      subject: mark.subject ?? (mark.kind === 'attention' ? 'target' : 'sender'),
+      source: mark.source ?? 'chat',
+      precision: mark.precision ??
+        (mark.grid ? 'grid' : mark.located ? 'exact' : 'unavailable'),
+    })),
+  }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

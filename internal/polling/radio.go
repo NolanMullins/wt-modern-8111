@@ -240,6 +240,23 @@ func cloneFloat(value *float64) *float64 {
 	return &cloned
 }
 
+func (s *Service) recentMapSignalsLocked(now time.Time) []telemetry.AllyMark {
+	pending := make([]telemetry.AllyMark, 0, len(s.allyMarks))
+	for _, mark := range s.allyMarks {
+		if !signalTimesMatch(mark.CreatedAt, now) {
+			continue
+		}
+		if mark.Precision == "grid" {
+			mark.X = nil
+			mark.Y = nil
+			mark.Area = nil
+			mark.Located = false
+		}
+		pending = append(pending, mark)
+	}
+	return pending
+}
+
 func (s *Service) pruneAllyMarksLocked(now time.Time) {
 	kept := s.allyMarks[:0]
 	for _, mark := range s.allyMarks {

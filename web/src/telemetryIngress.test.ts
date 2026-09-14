@@ -24,6 +24,40 @@ describe('parseSnapshotPayload', () => {
     expect(parseSnapshotPayload(JSON.stringify(snapshot))).toMatchObject({ ok: true })
   })
 
+  it('normalizes legacy v1 radio marks', () => {
+    const snapshot = makeSnapshot(4, '2026-09-01T22:00:04Z')
+    snapshot.allyMarks = [{
+      key: 'chat-1',
+      kind: 'attention',
+      subject: 'target',
+      source: 'chat',
+      precision: 'grid',
+      sender: 'ALLY',
+      message: 'Attention to the map! [C4]',
+      grid: 'C4',
+      located: true,
+      createdAt: '2026-09-01T22:00:00Z',
+      expiresAt: '2026-09-01T22:01:00Z',
+    }]
+    const legacy = structuredClone(snapshot) as unknown as {
+      allyMarks: Array<Record<string, unknown>>
+    }
+    delete legacy.allyMarks[0].subject
+    delete legacy.allyMarks[0].source
+    delete legacy.allyMarks[0].precision
+
+    expect(parseSnapshotPayload(JSON.stringify(legacy))).toMatchObject({
+      ok: true,
+      snapshot: {
+        allyMarks: [{
+          subject: 'target',
+          source: 'chat',
+          precision: 'grid',
+        }],
+      },
+    })
+  })
+
   it('rejects malformed and unsupported snapshots', () => {
     expect(parseSnapshotPayload('{')).toMatchObject({ ok: false })
     expect(parseSnapshotPayload(JSON.stringify({

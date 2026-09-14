@@ -224,13 +224,8 @@ func (s *Service) pollIndicators(ctx context.Context) {
 		if previousArmy != "" && currentArmy != "" && !strings.EqualFold(previousArmy, currentArmy) {
 			// War Thunder can reuse map_generation while swapping between the
 			// expanded aircraft map and the tank map.
-			s.mapEpoch++
-			s.raw.MapObjects = make([]warthunder.MapObject, 0)
-			s.sources["mapObjects"] = &sourceRecord{}
-			s.allyMarks = nil
-			s.mapObjectsPrimed = false
-			s.pointSignalKeys = make(map[string]struct{})
-			s.invalidateMapImageLocked()
+			s.resetMapSessionLocked()
+			s.raw.MapInfo = warthunder.MapInfo{}
 		}
 		// A fresh valid airframe means the pilot has respawned.
 		if s.destroyed && boolValue(value["valid"]) && !boolValue(s.raw.Indicators["valid"]) {
@@ -261,10 +256,15 @@ func (s *Service) pollMapObjects(ctx context.Context) {
 }
 
 func (s *Service) pollMapInfo(ctx context.Context) {
+	epoch := s.currentMapEpoch()
 	if value, err := s.client.MapInfo(ctx); err != nil {
 		s.recordFailure("mapInfo", err)
 	} else {
 		s.mu.Lock()
+		if epoch != s.mapEpoch {
+			s.mu.Unlock()
+			return
+		}
 		previousGeneration := s.raw.MapInfo.Generation
 		sessionEnded := s.sessionActive &&
 			!value.Valid &&
@@ -273,7 +273,9 @@ func (s *Service) pollMapInfo(ctx context.Context) {
 		if sessionEnded {
 			s.resetGameSessionLocked()
 		} else if value.Generation != previousGeneration {
+			pendingSignals := s.recentMapSignalsLocked(s.now())
 			s.resetMapSessionLocked()
+			s.allyMarks = pendingSignals
 		}
 		if value.Valid {
 			s.sessionActive = true
