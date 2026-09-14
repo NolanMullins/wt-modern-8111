@@ -34,7 +34,8 @@ func MarkKind(message string) (string, bool) {
 	switch normalized {
 	case "guide on me",
 		"follow me",
-		"move after me":
+		"move after me",
+		"on me":
 		return "guide", true
 	case "attention to the map",
 		"attention to the designated grid zone",
@@ -43,6 +44,7 @@ func MarkKind(message string) (string, bool) {
 	case "cover me":
 		return "cover", true
 	case "need help",
+		"need backup",
 		"help me":
 		return "help", true
 	}

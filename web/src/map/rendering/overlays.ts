@@ -47,6 +47,7 @@ export function drawAllyMarkOverlay(
   const now = Date.now()
 
   marks.forEach((mark) => {
+    const gridBounds = allyMarkGridBounds(mark, snapshot.map)
     const position = mapToCanvas({ x: mark.x as number, y: mark.y as number }, rect)
     const age = (now - new Date(mark.createdAt).getTime()) / 1000
     const remaining = new Date(mark.expiresAt).getTime() - now
@@ -61,17 +62,29 @@ export function drawAllyMarkOverlay(
     context.fillStyle = presentation.fill
     context.lineWidth = 2 * ratio
 
-    context.beginPath()
-    context.arc(position.x, position.y, radius, 0, Math.PI * 2)
-    context.fill()
-    context.stroke()
+    if (gridBounds) {
+      const start = mapToCanvas({ x: gridBounds.x, y: gridBounds.y }, rect)
+      const end = mapToCanvas({
+        x: gridBounds.x + gridBounds.width,
+        y: gridBounds.y + gridBounds.height,
+      }, rect)
+      context.setLineDash([6 * ratio, 4 * ratio])
+      context.fillRect(start.x, start.y, end.x - start.x, end.y - start.y)
+      context.strokeRect(start.x, start.y, end.x - start.x, end.y - start.y)
+      context.setLineDash([])
+    } else {
+      context.beginPath()
+      context.arc(position.x, position.y, radius, 0, Math.PI * 2)
+      context.fill()
+      context.stroke()
 
-    context.beginPath()
-    context.moveTo(position.x - radius - 5 * ratio, position.y)
-    context.lineTo(position.x + radius + 5 * ratio, position.y)
-    context.moveTo(position.x, position.y - radius - 5 * ratio)
-    context.lineTo(position.x, position.y + radius + 5 * ratio)
-    context.stroke()
+      context.beginPath()
+      context.moveTo(position.x - radius - 5 * ratio, position.y)
+      context.lineTo(position.x + radius + 5 * ratio, position.y)
+      context.moveTo(position.x, position.y - radius - 5 * ratio)
+      context.lineTo(position.x, position.y + radius + 5 * ratio)
+      context.stroke()
+    }
 
     context.font = `${10 * ratio}px "Inter", system-ui, sans-serif`
     context.textAlign = 'center'
@@ -85,15 +98,48 @@ export function drawAllyMarkOverlay(
       viewport.x + viewport.size - halfWidth - 4 * ratio,
       Math.max(viewport.x + halfWidth + 4 * ratio, position.x),
     )
+    const labelOffset = gridBounds ? 8 * ratio : radius + 8 * ratio
     const textY = Math.max(
       viewport.y + 12 * ratio,
-      position.y - radius - 8 * ratio,
+      position.y - labelOffset,
     )
     context.strokeText(text, textX, textY)
     context.fillStyle = presentation.color
     context.fillText(text, textX, textY)
     context.restore()
   })
+}
+
+export function allyMarkGridBounds(
+  mark: AllyMark,
+  map: Pick<Snapshot['map'], 'mapMin' | 'mapMax' | 'gridSteps'>,
+) {
+  if (!mark.grid) return undefined
+  const match = /^([A-Z]{1,2})(\d{1,2})$/i.exec(mark.grid)
+  const { mapMin, mapMax, gridSteps } = map
+  if (!match || !mapMin || !mapMax || !gridSteps ||
+    mapMin.length < 2 || mapMax.length < 2 || gridSteps.length < 2) {
+    return undefined
+  }
+  let row = 0
+  for (const symbol of match[1].toUpperCase()) {
+    row = row * 26 + symbol.charCodeAt(0) - 64
+  }
+  const column = Number(match[2])
+  const width = Math.abs(gridSteps[0]) / (mapMax[0] - mapMin[0])
+  const height = Math.abs(gridSteps[1]) / (mapMax[1] - mapMin[1])
+  const x = (column - 1) * width
+  const y = (row - 1) * height
+  if (![x, y, width, height].every(Number.isFinite) ||
+    x < 0 || y < 0 || x >= 1 || y >= 1) {
+    return undefined
+  }
+  return {
+    x,
+    y,
+    width: Math.min(width, 1 - x),
+    height: Math.min(height, 1 - y),
+  }
 }
 
 export function allyMarkPresentation(mark: AllyMark) {

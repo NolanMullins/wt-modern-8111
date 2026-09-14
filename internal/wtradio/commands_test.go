@@ -29,10 +29,12 @@ func TestMarkKind(t *testing.T) {
 		"Guide on me!":                          "guide",
 		"Follow me!":                            "guide",
 		"Move after me!":                        "guide",
+		"On me!":                                "guide",
 		"Attention to the map!":                 "attention",
 		"Attention to the designated grid zone": "attention",
 		"Cover me!":                             "cover",
 		"Need help!":                            "help",
+		"Need backup!":                          "help",
 		"Help me!":                              "help",
 	}
 	for message, want := range tests {

@@ -479,6 +479,14 @@ capture.
 Gaijin's built-in page labels lettered rows and numbered columns from
 `map_min`, using `grid_steps`; its grid renderer does not use `grid_zero`.
 
+A follow-up 20 Hz capture on 2026-09-13 recorded two local
+`Attention to the map` calls, including one placed on an objective. Neither
+call created a map object, changed the objective object, or exposed the clicked
+coordinate. The only correlated `/map_obj.json` change was the local `Player`
+object switching to its blue blinking state for about five seconds. Therefore
+the reported grid cell is the highest available precision when no separate
+`point_of_interest` object is present.
+
 ## Polling and caching
 
 Recommended starting rates balance responsiveness with a conservative load on

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { AllyMark } from '../../types'
-import { allyMarkPresentation } from './overlays'
+import { allyMarkGridBounds, allyMarkPresentation } from './overlays'
 
 const mark: AllyMark = {
   key: 'chat-1',
@@ -22,5 +22,18 @@ describe('allyMarkPresentation', () => {
       .toBe('PING · ALLY · C5')
     expect(allyMarkPresentation({ ...mark, kind: 'cover' }).label)
       .toBe('HELP · ALLY · C5 · 600 M')
+  })
+
+  it('represents reported coordinates as a grid area', () => {
+    expect(allyMarkGridBounds(mark, {
+      mapMin: [-65_536, -65_536],
+      mapMax: [65_536, 65_536],
+      gridSteps: [13_100, 13_100],
+    })).toEqual({
+      x: 0.3997802734375,
+      y: 0.19989013671875,
+      width: 0.099945068359375,
+      height: 0.099945068359375,
+    })
   })
 })
