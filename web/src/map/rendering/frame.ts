@@ -41,7 +41,7 @@ export function drawMapFrame(
       vehicleModeForSnapshot(snapshot) === 'ground',
     )
     drawNavigationOverlay(context, rect, snapshot, navigation)
-    drawAllyMarkOverlay(context, rect, snapshot)
+    drawAllyMarkOverlay(context, rect, viewport, snapshot)
   }
 
   function drawHeatmaps(
@@ -88,13 +88,14 @@ function drawGrid(
   snapshot: Snapshot,
 ) {
   const { mapMin, mapMax, gridSteps } = snapshot.map
-  if (!mapMin || !mapMax || !gridSteps || mapMin.length < 2 || mapMax.length < 2 || gridSteps.length < 2) return
+  if (!mapMin || !mapMax || !gridSteps ||
+    mapMin.length < 2 || mapMax.length < 2 || gridSteps.length < 2) return
   const width = mapMax[0] - mapMin[0]
   const height = mapMax[1] - mapMin[1]
   if (![width, height, gridSteps[0], gridSteps[1]].every(Number.isFinite) ||
     width <= 0 || height <= 0 || gridSteps[0] <= 0 || gridSteps[1] <= 0) return
-  const columns = Math.min(100, Math.max(1, Math.ceil(width / gridSteps[0])))
-  const rows = Math.min(100, Math.max(1, Math.ceil(height / gridSteps[1])))
+  const columns = visibleGridCells(mapMin[0], mapMax[0], gridSteps[0])
+  const rows = visibleGridCells(mapMin[1], mapMax[1], gridSteps[1])
   const ratio = Math.min(window.devicePixelRatio || 1, 2)
 
   context.save()
@@ -104,40 +105,58 @@ function drawGrid(
   context.shadowBlur = 3 * ratio
   context.lineWidth = ratio
   context.font = `700 ${Math.max(11 * ratio, viewport.size * 0.018)}px Arial`
-  for (let row = 0; row <= rows; row += 1) {
-    const y = rect.y + (row / rows) * rect.size
+  for (const row of rows) {
+    const y = rect.y + ((row.boundary - mapMin[1]) / height) * rect.size
     context.beginPath()
     context.moveTo(rect.x, y)
     context.lineTo(rect.x + rect.size, y)
     context.stroke()
-    if (row < rows) {
+    if (row.center <= mapMax[1]) {
       context.textAlign = 'left'
       context.textBaseline = 'middle'
-      const centerY = y + rect.size / rows / 2
+      const centerY = rect.y + ((row.center - mapMin[1]) / height) * rect.size
       if (centerY >= viewport.y && centerY <= viewport.y + viewport.size) {
-        context.fillText(rowLabel(row), viewport.x + 5 * ratio, centerY)
+        context.fillText(gridRowLabel(row.index), viewport.x + 5 * ratio, centerY)
       }
     }
   }
-  for (let column = 0; column <= columns; column += 1) {
-    const x = rect.x + (column / columns) * rect.size
+  for (const column of columns) {
+    const x = rect.x + ((column.boundary - mapMin[0]) / width) * rect.size
     context.beginPath()
     context.moveTo(x, rect.y)
     context.lineTo(x, rect.y + rect.size)
     context.stroke()
-    if (column < columns) {
+    if (column.center <= mapMax[0]) {
       context.textAlign = 'center'
       context.textBaseline = 'top'
-      const centerX = x + rect.size / columns / 2
+      const centerX = rect.x + ((column.center - mapMin[0]) / width) * rect.size
       if (centerX >= viewport.x && centerX <= viewport.x + viewport.size) {
-        context.fillText(String(column + 1), centerX, viewport.y + 5 * ratio)
+        context.fillText(String(column.index + 1), centerX, viewport.y + 5 * ratio)
       }
     }
   }
   context.restore()
 }
 
-function rowLabel(index: number) {
+export function visibleGridCells(
+  min: number,
+  max: number,
+  step: number,
+) {
+  const cells: Array<{ index: number; boundary: number; center: number }> = []
+  for (let index = 0; index < 100; index += 1) {
+    const boundary = min + index * step
+    if (boundary > max) break
+    cells.push({
+      index,
+      boundary,
+      center: boundary + step / 2,
+    })
+  }
+  return cells
+}
+
+export function gridRowLabel(index: number) {
   let label = ''
   let value = index + 1
   while (value > 0) {

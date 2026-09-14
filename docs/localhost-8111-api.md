@@ -461,6 +461,39 @@ IDs are scoped to one mission.
 Messages and player names are untrusted display text. They must be rendered as
 text, never inserted as HTML.
 
+The 2026-09-13 Air Simulator capture established two distinct spatial radio
+payloads:
+
+- Sender-location calls such as `Guide on me`, `Follow me`, `Move after me`,
+  and `Cover me` include a grid and altitude for remote teammates, for example
+  `[C5, alt. 600 m]`.
+- `Attention to the map` includes only a target grid such as `[B4]`. This
+  coordinate is the point being called out, not the sender's position.
+
+The sender sees their own location call without the coordinate suffix. Remote
+aircraft positions cannot be recovered from `/map_obj.json`; the grid and
+altitude embedded in chat are the only observed source. No
+`point_of_interest` object appeared for any of the four attention pings in the
+capture.
+
+Gaijin's built-in page labels lettered rows and numbered columns from
+`map_min`, using `grid_steps`; its grid renderer does not use `grid_zero`.
+
+A follow-up 20 Hz capture on 2026-09-13 recorded two local
+`Attention to the map` calls, including one placed on an objective. Neither
+call created a map object, changed the objective object, or exposed the clicked
+coordinate. The only correlated `/map_obj.json` change was the local `Player`
+object switching to its blue blinking state for about five seconds. Therefore
+the reported grid cell is the highest available precision when no separate
+`point_of_interest` object is present.
+
+WT Modern treats map telemetry as authoritative when it does expose a new
+`point_of_interest`: the exact normalized coordinate is persisted immediately,
+even without a chat record. A nearby attention message can then enrich that
+signal with its sender and grid in either polling order. Chat remains the
+fallback because tested Simulator sessions did not emit point objects for
+ordinary teammate attention calls.
+
 ## Polling and caching
 
 Recommended starting rates balance responsiveness with a conservative load on

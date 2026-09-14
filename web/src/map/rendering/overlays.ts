@@ -1,14 +1,8 @@
 import type { NavigationSolution } from '../../navigation'
-import type { Snapshot } from '../../types'
+import type { AllyMark, Snapshot } from '../../types'
 import { mapToCanvas, type MapRect } from '../geometry'
 import { cornerSquarePath } from './glyphs'
 
-const allyMarkLabels: Record<string, string> = {
-  guide: 'GUIDE ON ME',
-  attention: 'ATTENTION',
-  cover: 'COVER ME',
-  help: 'NEEDS HELP',
-}
 const allyMarkFadeMilliseconds = 5_000
 
 export function drawNavigationOverlay(
@@ -38,6 +32,7 @@ export function drawNavigationOverlay(
 export function drawAllyMarkOverlay(
   context: CanvasRenderingContext2D,
   rect: MapRect,
+  viewport: MapRect,
   snapshot: Snapshot,
 ) {
   const marks = (snapshot.allyMarks ?? []).filter(
@@ -52,44 +47,129 @@ export function drawAllyMarkOverlay(
   const now = Date.now()
 
   marks.forEach((mark) => {
+    const gridBounds = allyMarkGridBounds(mark, snapshot.map)
     const position = mapToCanvas({ x: mark.x as number, y: mark.y as number }, rect)
     const age = (now - new Date(mark.createdAt).getTime()) / 1000
     const remaining = new Date(mark.expiresAt).getTime() - now
     const opacity = Math.min(1, Math.max(0, remaining / allyMarkFadeMilliseconds))
     const pulse = age < 6 ? 1 + 0.25 * Math.sin(age * Math.PI * 2) : 1
     const radius = 13 * ratio * pulse
+    const presentation = allyMarkPresentation(mark)
 
     context.save()
     context.globalAlpha = opacity
-    context.strokeStyle = '#39d921'
-    context.fillStyle = 'rgba(57, 217, 33, 0.16)'
+    context.strokeStyle = presentation.color
+    context.fillStyle = presentation.fill
     context.lineWidth = 2 * ratio
 
-    context.beginPath()
-    context.arc(position.x, position.y, radius, 0, Math.PI * 2)
-    context.fill()
-    context.stroke()
+    if (gridBounds) {
+      const start = mapToCanvas({ x: gridBounds.x, y: gridBounds.y }, rect)
+      const end = mapToCanvas({
+        x: gridBounds.x + gridBounds.width,
+        y: gridBounds.y + gridBounds.height,
+      }, rect)
+      context.setLineDash([6 * ratio, 4 * ratio])
+      context.fillRect(start.x, start.y, end.x - start.x, end.y - start.y)
+      context.strokeRect(start.x, start.y, end.x - start.x, end.y - start.y)
+      context.setLineDash([])
+    } else {
+      context.beginPath()
+      context.arc(position.x, position.y, radius, 0, Math.PI * 2)
+      context.fill()
+      context.stroke()
 
-    context.beginPath()
-    context.moveTo(position.x - radius - 5 * ratio, position.y)
-    context.lineTo(position.x + radius + 5 * ratio, position.y)
-    context.moveTo(position.x, position.y - radius - 5 * ratio)
-    context.lineTo(position.x, position.y + radius + 5 * ratio)
-    context.stroke()
+      context.beginPath()
+      context.moveTo(position.x - radius - 5 * ratio, position.y)
+      context.lineTo(position.x + radius + 5 * ratio, position.y)
+      context.moveTo(position.x, position.y - radius - 5 * ratio)
+      context.lineTo(position.x, position.y + radius + 5 * ratio)
+      context.stroke()
+    }
 
-    const label = allyMarkLabels[mark.kind] ?? mark.kind.toUpperCase()
     context.font = `${10 * ratio}px "Inter", system-ui, sans-serif`
     context.textAlign = 'center'
     context.textBaseline = 'bottom'
     context.fillStyle = '#0b0f0a'
     context.strokeStyle = '#0b0f0a'
     context.lineWidth = 3 * ratio
-    const text = `${label} · ${mark.sender}`
-    context.strokeText(text, position.x, position.y - radius - 8 * ratio)
-    context.fillStyle = '#8dfa77'
-    context.fillText(text, position.x, position.y - radius - 8 * ratio)
+    const text = presentation.label
+    const halfWidth = context.measureText(text).width / 2
+    const textX = Math.min(
+      viewport.x + viewport.size - halfWidth - 4 * ratio,
+      Math.max(viewport.x + halfWidth + 4 * ratio, position.x),
+    )
+    const labelOffset = gridBounds ? 8 * ratio : radius + 8 * ratio
+    const textY = Math.max(
+      viewport.y + 12 * ratio,
+      position.y - labelOffset,
+    )
+    context.strokeText(text, textX, textY)
+    context.fillStyle = presentation.color
+    context.fillText(text, textX, textY)
     context.restore()
   })
+}
+
+export function allyMarkGridBounds(
+  mark: AllyMark,
+  map: Pick<Snapshot['map'], 'mapMin' | 'mapMax' | 'gridSteps'>,
+) {
+  if (mark.precision === 'exact') return undefined
+  if (mark.area) {
+    return {
+      x: mark.area.minX,
+      y: mark.area.minY,
+      width: mark.area.maxX - mark.area.minX,
+      height: mark.area.maxY - mark.area.minY,
+    }
+  }
+  if (!mark.grid) return undefined
+  const match = /^([A-Z]{1,2})(\d{1,2})$/i.exec(mark.grid)
+  const { mapMin, mapMax, gridSteps } = map
+  if (!match || !mapMin || !mapMax || !gridSteps ||
+    mapMin.length < 2 || mapMax.length < 2 || gridSteps.length < 2) {
+    return undefined
+  }
+  let row = 0
+  for (const symbol of match[1].toUpperCase()) {
+    row = row * 26 + symbol.charCodeAt(0) - 64
+  }
+  const column = Number(match[2])
+  const width = Math.abs(gridSteps[0]) / (mapMax[0] - mapMin[0])
+  const height = Math.abs(gridSteps[1]) / (mapMax[1] - mapMin[1])
+  const x = (column - 1) * width
+  const y = (row - 1) * height
+  if (![x, y, width, height].every(Number.isFinite) ||
+    x < 0 || y < 0 || x >= 1 || y >= 1) {
+    return undefined
+  }
+  return {
+    x,
+    y,
+    width: Math.min(width, 1 - x),
+    height: Math.min(height, 1 - y),
+  }
+}
+
+export function allyMarkPresentation(mark: AllyMark) {
+  const location = [
+    mark.grid,
+    mark.subject === 'sender' && mark.altitudeM !== undefined
+      ? `${Math.round(mark.altitudeM)} M`
+      : undefined,
+  ].filter(Boolean).join(' · ')
+  const prefix = mark.subject === 'target'
+    ? 'PING'
+    : mark.kind === 'cover' || mark.kind === 'help'
+      ? 'HELP'
+      : 'ALLY'
+  return {
+    color: mark.subject === 'target' ? '#ffd166' : '#8dfa77',
+    fill: mark.subject === 'target'
+      ? 'rgba(255, 209, 102, 0.18)'
+      : 'rgba(57, 217, 33, 0.16)',
+    label: [prefix, mark.sender || 'MAP TELEMETRY', location].filter(Boolean).join(' · '),
+  }
 }
 
 function drawSelectedTarget(

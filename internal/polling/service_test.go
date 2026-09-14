@@ -3,6 +3,7 @@ package polling
 import (
 	"context"
 	"fmt"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -147,6 +148,12 @@ func TestVehicleClassChangeInvalidatesCachedMapView(t *testing.T) {
 	service.mapImage = []byte("air")
 	service.heatmapImage = []byte("ground")
 	service.heatmapImageType = "image/jpeg"
+	service.mapObjectsPrimed = true
+	service.pointSignalKeys["0.100000-0.200000"] = struct{}{}
+	service.allyMarks = []telemetry.AllyMark{{
+		Key:       "old-map",
+		ExpiresAt: time.Now().Add(time.Minute),
+	}}
 
 	service.pollIndicators(context.Background())
 
@@ -158,6 +165,13 @@ func TestVehicleClassChangeInvalidatesCachedMapView(t *testing.T) {
 	}
 	if _, _, _, ok := service.MapImage(); ok {
 		t.Fatal("air map remained available after switching to a tank")
+	}
+	if service.mapObjectsPrimed || len(service.pointSignalKeys) != 0 ||
+		len(service.allyMarks) != 0 {
+		t.Fatal("army switch retained stale map-signal state")
+	}
+	if len(service.raw.MapInfo.MapMin) != 0 || service.raw.MapInfo.Generation != 0 {
+		t.Fatalf("army switch retained stale map metadata: %+v", service.raw.MapInfo)
 	}
 	ground, contentType, revision, ok := service.GroundMapImage()
 	if !ok || string(ground) != "ground" || contentType != "image/jpeg" || revision != 8 {
@@ -387,6 +401,90 @@ func TestRunningMissionRetainsGroundMapAcrossInvalidCASFrame(t *testing.T) {
 	}
 }
 
+func TestMapGenerationChangePreservesRecentSignalsAndFeedCursors(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		switch request.URL.Path {
+		case "/map_info.json":
+			writer.Header().Set("Content-Type", "application/json")
+			_, _ = fmt.Fprint(
+				writer,
+				`{"valid":true,"map_generation":2,"grid_steps":[10,10],`+
+					`"map_min":[0,0],"map_max":[100,100]}`,
+			)
+		case "/map.img":
+			writer.Header().Set("Content-Type", "image/png")
+			_, _ = writer.Write([]byte("map"))
+		default:
+			http.NotFound(writer, request)
+		}
+	}))
+	defer server.Close()
+	service := NewService(warthunder.NewClient(server.URL, time.Second))
+	now := time.Now()
+	service.now = func() time.Time { return now }
+	service.raw.MapInfo = warthunder.MapInfo{Valid: true, Generation: 1}
+	service.lastChatID = 42
+	service.chatPrimed = true
+	service.allyMarks = []telemetry.AllyMark{
+		{
+			Key:       "stale",
+			CreatedAt: now.Add(-10 * time.Second),
+			ExpiresAt: now.Add(time.Minute),
+		},
+		{
+			Key:       "pending",
+			Kind:      "attention",
+			Subject:   "target",
+			Source:    "chat",
+			Precision: "grid",
+			Grid:      "C4",
+			Located:   true,
+			CreatedAt: now.Add(-time.Second),
+			ExpiresAt: now.Add(time.Minute),
+		},
+	}
+
+	service.pollMapInfo(context.Background())
+
+	if service.lastChatID != 42 || !service.chatPrimed {
+		t.Fatalf("map generation reset feed cursor: id=%d primed=%t", service.lastChatID, service.chatPrimed)
+	}
+	if len(service.allyMarks) != 1 || service.allyMarks[0].Key != "pending" ||
+		!service.allyMarks[0].Located || service.allyMarks[0].Area == nil {
+		t.Fatalf("recent signal was not preserved and re-resolved: %+v", service.allyMarks)
+	}
+}
+
+func TestStaleMapInfoResponseCannotCrossMapEpoch(t *testing.T) {
+	started := make(chan struct{})
+	release := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		close(started)
+		<-release
+		writer.Header().Set("Content-Type", "application/json")
+		_, _ = fmt.Fprint(writer, `{"valid":true,"map_generation":2}`)
+	}))
+	defer server.Close()
+	service := NewService(warthunder.NewClient(server.URL, time.Second))
+	service.raw.MapInfo = warthunder.MapInfo{Valid: true, Generation: 1}
+
+	done := make(chan struct{})
+	go func() {
+		service.pollMapInfo(context.Background())
+		close(done)
+	}()
+	<-started
+	service.mu.Lock()
+	service.resetMapSessionLocked()
+	service.mu.Unlock()
+	close(release)
+	<-done
+
+	if service.raw.MapInfo.Generation != 1 {
+		t.Fatalf("stale map info crossed epoch: %+v", service.raw.MapInfo)
+	}
+}
+
 func TestRTBActivatesOnLiveHeadingToBasePreset(t *testing.T) {
 	service := newTestService()
 	// The preset War Thunder actually emits is "Heading to the base."
@@ -423,6 +521,12 @@ func TestRTBActivatesOnLiveHeadingToBasePreset(t *testing.T) {
 func TestGuideOnMeMarksAlliesOnly(t *testing.T) {
 	service := newTestService()
 	service.identity.SetCallsign("=GRIND= DEERSLUG")
+	service.raw.MapInfo = warthunder.MapInfo{
+		GridSteps: []float64{13100, 13100},
+		GridZero:  []float64{-65536, 65536},
+		MapMin:    []float64{-65536, -65536},
+		MapMax:    []float64{65536, 65536},
+	}
 
 	service.processChatRecordLocked(warthunder.FeedRecord{
 		ID:      1,
@@ -436,7 +540,7 @@ func TestGuideOnMeMarksAlliesOnly(t *testing.T) {
 
 	service.processChatRecordLocked(warthunder.FeedRecord{
 		ID:      2,
-		Message: "Guide on me!<color=#FF96966E> [C4]</color>",
+		Message: "Move after me!<color=#FF96966E> [C4, alt. 600 m]</color>",
 		Sender:  "FISHY THUNDER",
 		Mode:    "Team",
 	}, true)
@@ -449,6 +553,12 @@ func TestGuideOnMeMarksAlliesOnly(t *testing.T) {
 	if service.allyMarks[0].Grid != "C4" {
 		t.Fatalf("expected teammate coordinate payload, got %+v", service.allyMarks[0])
 	}
+	if service.allyMarks[0].Subject != "sender" ||
+		service.allyMarks[0].AltitudeM == nil ||
+		*service.allyMarks[0].AltitudeM != 600 ||
+		!service.allyMarks[0].Located {
+		t.Fatalf("expected located sender position with altitude, got %+v", service.allyMarks[0])
+	}
 	if lifetime := service.allyMarks[0].ExpiresAt.Sub(service.allyMarks[0].CreatedAt); lifetime != 35*time.Second {
 		t.Fatalf("ally mark lifetime = %v, want 30s visible plus 5s fade", lifetime)
 	}
@@ -458,10 +568,10 @@ func TestAllyMarkResolvesGridReference(t *testing.T) {
 	service := newTestService()
 	service.identity.SetCallsign("=GRIND= DEERSLUG")
 	service.raw.MapInfo = warthunder.MapInfo{
-		GridSteps: []float64{13100, 13100},
-		GridZero:  []float64{-65536, 65536},
-		MapMin:    []float64{-65536, -65536},
-		MapMax:    []float64{65536, 65536},
+		GridSteps: []float64{10, 10},
+		GridZero:  []float64{0, 100},
+		MapMin:    []float64{0, 0},
+		MapMax:    []float64{100, 100},
 	}
 
 	service.processChatRecordLocked(warthunder.FeedRecord{
@@ -478,12 +588,233 @@ func TestAllyMarkResolvesGridReference(t *testing.T) {
 	if mark.Grid != "C4" || !mark.Located || mark.X == nil || mark.Y == nil {
 		t.Fatalf("grid not resolved: %+v", mark)
 	}
-	if *mark.X < 0 || *mark.X > 1 || *mark.Y < 0 || *mark.Y > 1 {
-		t.Fatalf("resolved position out of range: %v %v", *mark.X, *mark.Y)
+	if mark.Subject != "target" {
+		t.Fatalf("attention callout subject = %q, want target", mark.Subject)
+	}
+	if mark.Precision != "grid" || mark.Area == nil {
+		t.Fatalf("attention callout did not retain its grid area: %+v", mark)
+	}
+	if math.Abs(*mark.X-0.35) > 0.000001 || math.Abs(*mark.Y-0.25) > 0.000001 {
+		t.Fatalf("C4 resolved to %v, %v; want 0.35, 0.25", *mark.X, *mark.Y)
 	}
 	// The colour markup must not leak into the displayed message.
 	if strings.Contains(mark.Message, "<color") {
 		t.Fatalf("markup leaked into message: %q", mark.Message)
+	}
+}
+
+func TestOwnAttentionGridCreatesTargetFallback(t *testing.T) {
+	service := newTestService()
+	service.identity.SetCallsign("SELF")
+	service.raw.MapInfo = warthunder.MapInfo{
+		GridSteps: []float64{10, 10},
+		MapMin:    []float64{0, 0},
+		MapMax:    []float64{100, 100},
+	}
+	service.processChatRecordLocked(warthunder.FeedRecord{
+		ID:      7,
+		Message: "Attention to the map!<color=#FF96966E> [C4]</color>",
+		Sender:  "SELF",
+		Mode:    "Team",
+	}, true)
+
+	if len(service.allyMarks) != 1 || service.allyMarks[0].Subject != "target" {
+		t.Fatalf("own attention target was not retained: %+v", service.allyMarks)
+	}
+}
+
+func TestAllyMarkResolvesWhenMapMetadataArrives(t *testing.T) {
+	service := newTestService()
+	service.identity.SetCallsign("SELF")
+	service.processChatRecordLocked(warthunder.FeedRecord{
+		ID:      4,
+		Message: "Guide on me!<color=#FF96966E> [C4, alt. 600 m]</color>",
+		Sender:  "TEAMMATE",
+		Mode:    "Team",
+	}, true)
+	if len(service.allyMarks) != 1 || service.allyMarks[0].Located {
+		t.Fatalf("mark unexpectedly resolved without map metadata: %+v", service.allyMarks)
+	}
+
+	service.raw.MapInfo = warthunder.MapInfo{
+		GridSteps: []float64{10, 10},
+		GridZero:  []float64{0, 100},
+		MapMin:    []float64{0, 0},
+		MapMax:    []float64{100, 100},
+	}
+	service.resolveAllyMarksLocked()
+	if !service.allyMarks[0].Located {
+		t.Fatalf("mark was not resolved after map metadata arrived: %+v", service.allyMarks[0])
+	}
+}
+
+func TestNewPointOfInterestCreatesExactTelemetrySignal(t *testing.T) {
+	service := newTestService()
+	x, y := 0.35, 0.25
+	point := warthunder.MapObject{
+		Type: "point_of_interest",
+		X:    &x,
+		Y:    &y,
+	}
+
+	service.processMapObjectsLocked([]warthunder.MapObject{point}, false)
+	if len(service.allyMarks) != 0 {
+		t.Fatalf("initial map snapshot created a signal: %+v", service.allyMarks)
+	}
+	service.processMapObjectsLocked(nil, true)
+	service.processMapObjectsLocked([]warthunder.MapObject{point}, true)
+	service.processMapObjectsLocked([]warthunder.MapObject{point}, true)
+	service.processMapObjectsLocked(nil, true)
+	service.processMapObjectsLocked([]warthunder.MapObject{point}, true)
+
+	if len(service.allyMarks) != 1 {
+		t.Fatalf("exact signal count = %d, want 1", len(service.allyMarks))
+	}
+	mark := service.allyMarks[0]
+	if mark.Source != "telemetry" || mark.Precision != "exact" ||
+		!mark.Located || mark.X == nil || mark.Y == nil ||
+		*mark.X != x || *mark.Y != y {
+		t.Fatalf("unexpected exact telemetry signal: %+v", mark)
+	}
+}
+
+func TestDelayedMapMetadataReconcilesExactPointAndChat(t *testing.T) {
+	service := newTestService()
+	service.identity.SetCallsign("SELF")
+	now := time.Now()
+	service.now = func() time.Time { return now }
+	service.processMapObjectsLocked(nil, false)
+	x, y := 0.35, 0.25
+	service.processMapObjectsLocked([]warthunder.MapObject{{
+		Type: "point_of_interest",
+		X:    &x,
+		Y:    &y,
+	}}, true)
+	now = now.Add(time.Second)
+	service.processChatRecordLocked(warthunder.FeedRecord{
+		ID:      8,
+		Message: "Attention to the map!<color=#FF96966E> [C4]</color>",
+		Sender:  "TEAMMATE",
+		Mode:    "Team",
+	}, true)
+	if len(service.allyMarks) != 2 {
+		t.Fatalf("signals fused without map metadata: %+v", service.allyMarks)
+	}
+
+	now = now.Add(5 * time.Second)
+	service.raw.MapInfo = warthunder.MapInfo{
+		GridSteps: []float64{10, 10},
+		MapMin:    []float64{0, 0},
+		MapMax:    []float64{100, 100},
+	}
+	service.resolveAllyMarksLocked()
+
+	if len(service.allyMarks) != 1 ||
+		service.allyMarks[0].Source != "fused" ||
+		service.allyMarks[0].Precision != "exact" {
+		t.Fatalf("delayed map metadata did not reconcile signals: %+v", service.allyMarks)
+	}
+}
+
+func TestAttentionChatFusesWithEarlierExactPoint(t *testing.T) {
+	service := newTestService()
+	service.identity.SetCallsign("SELF")
+	service.raw.MapInfo = warthunder.MapInfo{
+		GridSteps: []float64{10, 10},
+		MapMin:    []float64{0, 0},
+		MapMax:    []float64{100, 100},
+	}
+	x, y := 0.35, 0.25
+	service.processMapObjectsLocked(nil, false)
+	service.processMapObjectsLocked([]warthunder.MapObject{{
+		Type: "point_of_interest",
+		X:    &x,
+		Y:    &y,
+	}}, true)
+	service.processChatRecordLocked(warthunder.FeedRecord{
+		ID:      5,
+		Message: "Attention to the map!<color=#FF96966E> [C4]</color>",
+		Sender:  "TEAMMATE",
+		Mode:    "Team",
+	}, true)
+
+	if len(service.allyMarks) != 1 {
+		t.Fatalf("fused signal count = %d, want 1", len(service.allyMarks))
+	}
+	mark := service.allyMarks[0]
+	if mark.Source != "fused" || mark.Precision != "exact" ||
+		mark.Sender != "TEAMMATE" || mark.Grid != "C4" {
+		t.Fatalf("unexpected fused signal: %+v", mark)
+	}
+}
+
+func TestExactPointFusesWithEarlierAttentionChat(t *testing.T) {
+	service := newTestService()
+	service.identity.SetCallsign("SELF")
+	service.raw.MapInfo = warthunder.MapInfo{
+		GridSteps: []float64{10, 10},
+		MapMin:    []float64{0, 0},
+		MapMax:    []float64{100, 100},
+	}
+	service.processChatRecordLocked(warthunder.FeedRecord{
+		ID:      6,
+		Message: "Attention to the map!<color=#FF96966E> [C4]</color>",
+		Sender:  "TEAMMATE",
+		Mode:    "Team",
+	}, true)
+	service.processMapObjectsLocked(nil, false)
+	x, y := 0.35, 0.25
+	service.processMapObjectsLocked([]warthunder.MapObject{{
+		Type: "point_of_interest",
+		X:    &x,
+		Y:    &y,
+	}}, true)
+
+	if len(service.allyMarks) != 1 {
+		t.Fatalf("fused signal count = %d, want 1", len(service.allyMarks))
+	}
+	mark := service.allyMarks[0]
+	if mark.Key != "map-0.350000-0.250000" ||
+		mark.Source != "fused" || mark.Precision != "exact" ||
+		mark.X == nil || mark.Y == nil || *mark.X != x || *mark.Y != y {
+		t.Fatalf("unexpected fused signal: %+v", mark)
+	}
+}
+
+func TestReappearingExactPointReconcilesNewChatWithoutDuplicate(t *testing.T) {
+	service := newTestService()
+	service.identity.SetCallsign("SELF")
+	service.raw.MapInfo = warthunder.MapInfo{
+		GridSteps: []float64{10, 10},
+		MapMin:    []float64{0, 0},
+		MapMax:    []float64{100, 100},
+	}
+	service.processMapObjectsLocked(nil, false)
+	service.processChatRecordLocked(warthunder.FeedRecord{
+		ID:      9,
+		Message: "Attention to the map!<color=#FF96966E> [C4]</color>",
+		Sender:  "FIRST",
+		Mode:    "Team",
+	}, true)
+	x, y := 0.35, 0.25
+	point := warthunder.MapObject{Type: "point_of_interest", X: &x, Y: &y}
+	service.processMapObjectsLocked([]warthunder.MapObject{point}, true)
+	service.processMapObjectsLocked(nil, true)
+	service.processChatRecordLocked(warthunder.FeedRecord{
+		ID:      10,
+		Message: "Attention to the map!<color=#FF96966E> [C4]</color>",
+		Sender:  "SECOND",
+		Mode:    "Team",
+	}, true)
+	service.processMapObjectsLocked([]warthunder.MapObject{point}, true)
+
+	if len(service.allyMarks) != 1 {
+		t.Fatalf("reappearing signal count = %d, want 1: %+v", len(service.allyMarks), service.allyMarks)
+	}
+	mark := service.allyMarks[0]
+	if mark.Key != "map-0.350000-0.250000" ||
+		mark.Source != "fused" || mark.Sender != "SECOND" {
+		t.Fatalf("reappearing signal was not refreshed and fused: %+v", mark)
 	}
 }
 
@@ -498,6 +829,26 @@ func TestAllyMarksExpire(t *testing.T) {
 
 	if len(service.allyMarks) != 1 || service.allyMarks[0].Key != "fresh" {
 		t.Fatalf("expired marks not pruned: %+v", service.allyMarks)
+	}
+}
+
+func TestMapSessionResetReprimesPointsAndPreservesFeed(t *testing.T) {
+	service := newTestService()
+	service.mapObjectsPrimed = true
+	service.pointSignalKeys["0.100000-0.200000"] = struct{}{}
+	service.lastChatID = 8
+	service.chatPrimed = true
+
+	service.resetMapSessionLocked()
+
+	if service.mapObjectsPrimed {
+		t.Fatal("map-object detector did not re-prime after coordinate reset")
+	}
+	if len(service.pointSignalKeys) != 0 {
+		t.Fatalf("point signal keys survived map reset: %+v", service.pointSignalKeys)
+	}
+	if service.lastChatID != 8 || !service.chatPrimed {
+		t.Fatal("map-only reset cleared feed cursor state")
 	}
 }
 

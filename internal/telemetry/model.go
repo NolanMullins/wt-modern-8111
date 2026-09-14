@@ -35,12 +35,24 @@ type AllyMark struct {
 	Kind      string    `json:"kind"`
 	Sender    string    `json:"sender"`
 	Message   string    `json:"message"`
+	Subject   string    `json:"subject"`
+	Source    string    `json:"source"`
+	Precision string    `json:"precision"`
 	Grid      string    `json:"grid,omitempty"`
+	Area      *MapArea  `json:"area,omitempty"`
+	AltitudeM *float64  `json:"altitudeM,omitempty"`
 	X         *float64  `json:"x,omitempty"`
 	Y         *float64  `json:"y,omitempty"`
 	Located   bool      `json:"located"`
 	CreatedAt time.Time `json:"createdAt"`
 	ExpiresAt time.Time `json:"expiresAt"`
+}
+
+type MapArea struct {
+	MinX float64 `json:"minX"`
+	MinY float64 `json:"minY"`
+	MaxX float64 `json:"maxX"`
+	MaxY float64 `json:"maxY"`
 }
 
 type Connection struct {

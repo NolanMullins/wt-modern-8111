@@ -19,13 +19,11 @@ func (s *Service) resetMapSessionLocked() {
 	s.invalidateMapImageLocked()
 	s.raw.MapObjects = make([]warthunder.MapObject, 0)
 	s.sources["mapObjects"] = &sourceRecord{}
-	s.resetFeedSessionLocked()
+	s.mapObjectsPrimed = false
+	s.pointSignalKeys = make(map[string]struct{})
 	s.resetRTBLocked()
 	s.allyMarks = nil
 	s.destroyed = false
-	if s.identity != nil {
-		s.identity.ResetSession()
-	}
 }
 
 func (s *Service) invalidateMapImageLocked() {
@@ -37,6 +35,10 @@ func (s *Service) invalidateMapImageLocked() {
 
 func (s *Service) resetGameSessionLocked() {
 	s.resetMapSessionLocked()
+	s.resetFeedSessionLocked()
+	if s.identity != nil {
+		s.identity.ResetSession()
+	}
 	s.sessionActive = false
 	s.mapRevision = 0
 	s.heatmapImage = nil

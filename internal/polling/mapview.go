@@ -55,6 +55,18 @@ func transformAllyMarks(
 			current,
 			ground,
 		)
+		if area := result[index].Area; area != nil {
+			minX, minY := transformPoint(&area.MinX, &area.MinY, current, ground)
+			maxX, maxY := transformPoint(&area.MaxX, &area.MaxY, current, ground)
+			if minX != nil && minY != nil && maxX != nil && maxY != nil {
+				result[index].Area = &telemetry.MapArea{
+					MinX: math.Min(*minX, *maxX),
+					MinY: math.Min(*minY, *maxY),
+					MaxX: math.Max(*minX, *maxX),
+					MaxY: math.Max(*minY, *maxY),
+				}
+			}
+		}
 	}
 	return result
 }

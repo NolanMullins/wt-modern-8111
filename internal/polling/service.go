@@ -51,6 +51,8 @@ type Service struct {
 	returnToAirfield bool
 	landingSamples   int
 	allyMarks        []telemetry.AllyMark
+	mapObjectsPrimed bool
+	pointSignalKeys  map[string]struct{}
 	destroyed        bool
 }
 
@@ -62,12 +64,13 @@ func NewService(client *warthunder.Client) *Service {
 // tests can avoid touching the user's persisted identity file.
 func NewServiceWithIdentity(client *warthunder.Client, resolver *identity.Resolver) *Service {
 	service := &Service{
-		client:   client,
-		mode:     "live",
-		sources:  make(map[string]*sourceRecord),
-		feedKeys: make(map[string]struct{}),
-		identity: resolver,
-		now:      time.Now,
+		client:          client,
+		mode:            "live",
+		sources:         make(map[string]*sourceRecord),
+		feedKeys:        make(map[string]struct{}),
+		pointSignalKeys: make(map[string]struct{}),
+		identity:        resolver,
+		now:             time.Now,
 	}
 	service.publish(service.now())
 	return service
@@ -75,11 +78,12 @@ func NewServiceWithIdentity(client *warthunder.Client, resolver *identity.Resolv
 
 func NewFixtureService(directory string) (*Service, error) {
 	service := &Service{
-		mode:     "fixture",
-		sources:  make(map[string]*sourceRecord),
-		feedKeys: make(map[string]struct{}),
-		identity: identity.NewResolver(""),
-		now:      time.Now,
+		mode:            "fixture",
+		sources:         make(map[string]*sourceRecord),
+		feedKeys:        make(map[string]struct{}),
+		pointSignalKeys: make(map[string]struct{}),
+		identity:        identity.NewResolver(""),
+		now:             time.Now,
 	}
 	files := []struct {
 		name   string
@@ -220,10 +224,8 @@ func (s *Service) pollIndicators(ctx context.Context) {
 		if previousArmy != "" && currentArmy != "" && !strings.EqualFold(previousArmy, currentArmy) {
 			// War Thunder can reuse map_generation while swapping between the
 			// expanded aircraft map and the tank map.
-			s.mapEpoch++
-			s.raw.MapObjects = make([]warthunder.MapObject, 0)
-			s.sources["mapObjects"] = &sourceRecord{}
-			s.invalidateMapImageLocked()
+			s.resetMapSessionLocked()
+			s.raw.MapInfo = warthunder.MapInfo{}
 		}
 		// A fresh valid airframe means the pilot has respawned.
 		if s.destroyed && boolValue(value["valid"]) && !boolValue(s.raw.Indicators["valid"]) {
@@ -245,17 +247,24 @@ func (s *Service) pollMapObjects(ctx context.Context) {
 			s.mu.Unlock()
 			return
 		}
+		s.processMapObjectsLocked(value, s.mapObjectsPrimed)
 		s.raw.MapObjects = value
+		s.mapObjectsPrimed = true
 		s.recordSuccessLocked("mapObjects")
 		s.mu.Unlock()
 	}
 }
 
 func (s *Service) pollMapInfo(ctx context.Context) {
+	epoch := s.currentMapEpoch()
 	if value, err := s.client.MapInfo(ctx); err != nil {
 		s.recordFailure("mapInfo", err)
 	} else {
 		s.mu.Lock()
+		if epoch != s.mapEpoch {
+			s.mu.Unlock()
+			return
+		}
 		previousGeneration := s.raw.MapInfo.Generation
 		sessionEnded := s.sessionActive &&
 			!value.Valid &&
@@ -264,12 +273,15 @@ func (s *Service) pollMapInfo(ctx context.Context) {
 		if sessionEnded {
 			s.resetGameSessionLocked()
 		} else if value.Generation != previousGeneration {
+			pendingSignals := s.recentMapSignalsLocked(s.now())
 			s.resetMapSessionLocked()
+			s.allyMarks = pendingSignals
 		}
 		if value.Valid {
 			s.sessionActive = true
 		}
 		s.raw.MapInfo = value
+		s.resolveAllyMarksLocked()
 		s.recordSuccessLocked("mapInfo")
 		needsGroundImage := isGroundArmy(s.raw.Indicators) && len(s.heatmapImage) == 0
 		s.mu.Unlock()

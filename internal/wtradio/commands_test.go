@@ -28,10 +28,13 @@ func TestMarkKind(t *testing.T) {
 	tests := map[string]string{
 		"Guide on me!":                          "guide",
 		"Follow me!":                            "guide",
+		"Move after me!":                        "guide",
+		"On me!":                                "guide",
 		"Attention to the map!":                 "attention",
 		"Attention to the designated grid zone": "attention",
 		"Cover me!":                             "cover",
 		"Need help!":                            "help",
+		"Need backup!":                          "help",
 		"Help me!":                              "help",
 	}
 	for message, want := range tests {
@@ -43,15 +46,21 @@ func TestMarkKind(t *testing.T) {
 	if _, ok := MarkKind("Attack the A point!"); ok {
 		t.Fatal("attack command must not create an ally mark")
 	}
+	if _, ok := MarkKind("Cover me in the next match"); ok {
+		t.Fatal("ordinary team chat must not create an ally mark")
+	}
 }
 
 func TestMarkupAndGridParsing(t *testing.T) {
-	message := "Attention to the map!<color=#FF96966E> [c4]</color>"
-	if got := StripMarkup(message); got != "Attention to the map! [c4]" {
+	message := "Guide on me!<color=#FF96966E> [c4, alt. 600 m]</color>"
+	if got := StripMarkup(message); got != "Guide on me! [c4, alt. 600 m]" {
 		t.Fatalf("StripMarkup() = %q", got)
 	}
 	if got, ok := ExtractGrid(message); !ok || got != "C4" {
 		t.Fatalf("ExtractGrid() = %q, %v; want C4, true", got, ok)
+	}
+	if got, ok := ExtractAltitudeMeters(message); !ok || got != 600 {
+		t.Fatalf("ExtractAltitudeMeters() = %v, %v; want 600, true", got, ok)
 	}
 	if column, row, ok := ParseGrid("aa12"); !ok || column != "AA" || row != 12 {
 		t.Fatalf("ParseGrid() = %q, %d, %v", column, row, ok)
